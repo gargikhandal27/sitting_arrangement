@@ -1,0 +1,4 @@
+room_id,room_name,rows,columns,is_available
+R101,Room 101,5,6,true
+R102,Room 102,4,5,true
+R201,Room 201,6,8,true

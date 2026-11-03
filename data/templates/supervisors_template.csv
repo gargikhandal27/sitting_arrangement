@@ -1,0 +1,5 @@
+supervisor_id,supervisor_name,is_available
+SUP001,Dr. Sharma,true
+SUP002,Prof. Patel,true
+SUP003,Ms. Gupta,true
+SUP004,Mr. Khan,true

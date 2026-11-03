@@ -1,0 +1,43 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Database
+*.db
+*.sqlite3
+
+# Streamlit
+.streamlit/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data & artifacts (keep structure, ignore content)
+data/classroom_images/*
+!data/classroom_images/.gitkeep
+data/generated_reports/*
+!data/generated_reports/.gitkeep
+artifacts/vision_models/*
+!artifacts/vision_models/.gitkeep
+
+# Secrets / local config
+.env
+*.log
