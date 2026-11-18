@@ -369,9 +369,146 @@ def apply_theme() -> str:
         object-fit: contain !important;
     }}
 
+    
+    /* -----------------------------------------------
+       EXAMFLOW CONTRAST FIX
+       File uploaders, expanders, buttons and controls
+       ----------------------------------------------- */
+
+    /* File uploader dropzone */
+
+    [data-testid="stFileUploaderDropzone"] {{
+        background: var(--exam-surface-alt) !important;
+        border: 1px dashed var(--exam-border) !important;
+        border-radius: 10px !important;
+    }}
+
+    [data-testid="stFileUploaderDropzone"] *,
+    [data-testid="stFileUploaderDropzoneInstructions"],
+    [data-testid="stFileUploaderDropzoneInstructions"] * {{
+        color: var(--exam-text) !important;
+    }}
+
+    [data-testid="stFileUploaderDropzoneInstructions"] small,
+    [data-testid="stFileUploaderDropzoneInstructions"] span {{
+        color: var(--exam-muted) !important;
+    }}
+
+    /* Browse / Upload button inside file uploader */
+
+    [data-testid="stFileUploaderDropzone"] button {{
+        background: var(--exam-primary) !important;
+        color: #FFFFFF !important;
+        border: 1px solid var(--exam-primary) !important;
+        border-radius: 8px !important;
+    }}
+
+    [data-testid="stFileUploaderDropzone"] button *,
+    [data-testid="stFileUploaderDropzone"] button svg {{
+        color: #FFFFFF !important;
+        stroke: #FFFFFF !important;
+    }}
+
+    [data-testid="stFileUploaderDropzone"] button:hover {{
+        background: var(--exam-primary-hover) !important;
+    }}
+
+    /* File upload labels and uploaded file names */
+
+    [data-testid="stFileUploader"] label,
+    [data-testid="stFileUploader"] p,
+    [data-testid="stFileUploader"] span {{
+        color: var(--exam-text);
+    }}
+
+    /* Expander header */
+
+    [data-testid="stExpander"] {{
+        background: var(--exam-surface) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 10px !important;
+        overflow: hidden;
+    }}
+
+    [data-testid="stExpander"] details {{
+        background: var(--exam-surface) !important;
+    }}
+
+    [data-testid="stExpander"] summary {{
+        background: var(--exam-surface-alt) !important;
+        color: var(--exam-text) !important;
+    }}
+
+    [data-testid="stExpander"] summary *,
+    [data-testid="stExpander"] summary p,
+    [data-testid="stExpander"] summary svg {{
+        color: var(--exam-text) !important;
+        stroke: currentColor;
+    }}
+
+    [data-testid="stExpander"] summary:hover {{
+        background: var(--exam-surface-alt) !important;
+    }}
+
+    [data-testid="stExpander"] details > div {{
+        color: var(--exam-text) !important;
+    }}
+
+    /* Button text and icons */
+
+    .stButton > button *,
+    [data-testid="stDownloadButton"] button * {{
+        color: inherit !important;
+    }}
+
+    .stButton > button[kind="primary"] {{
+        background: var(--exam-primary) !important;
+        color: #FFFFFF !important;
+    }}
+
+    /* Selectbox and multiselect inner text */
+
+    [data-testid="stSelectbox"] [data-baseweb="select"] *,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] * {{
+        color: var(--exam-text) !important;
+    }}
+
+    /* Inputs and placeholders */
+
+    [data-testid="stNumberInput"] button {{
+        color: var(--exam-text) !important;
+    }}
+
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stTextArea"] textarea {{
+        -webkit-text-fill-color: var(--exam-text) !important;
+    }}
+
+    /* Tabs */
+
+    [data-testid="stTabs"] [role="tab"] * {{
+        color: inherit !important;
+    }}
+
+    /* Checkbox and radio labels */
+
+    [data-testid="stCheckbox"] label *,
+    [data-testid="stRadio"] label * {{
+        color: var(--exam-text);
+    }}
+
+    /* Keep sidebar appearance selector readable */
+
+    [data-testid="stSidebar"] [data-testid="stRadio"] label *,
+    [data-testid="stSidebar"] [data-testid="stRadio"] p {{
+        color: {c['sidebar_text']} !important;
+    }}
+
     </style>
     """
 
     st.markdown(css, unsafe_allow_html=True)
 
     return mode
+
