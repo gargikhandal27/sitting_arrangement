@@ -1,0 +1,23 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="120" viewBox="0 0 560 120">
+  <rect width="560" height="120" rx="16" fill="#142B4A"/>
+
+  <rect x="18" y="18" width="84" height="84" rx="16" fill="#2878C8"/>
+
+  <path d="M32 48 L60 34 L88 48 L60 62 Z" fill="#FFFFFF"/>
+  <path d="M42 55 V70 Q60 84 78 70 V55 L60 65 Z" fill="#EAF3FC"/>
+  <path d="M86 49 V68" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="86" cy="73" r="4" fill="#FFFFFF"/>
+
+  <text x="124" y="62"
+        font-family="Arial, sans-serif"
+        font-size="38"
+        font-weight="bold"
+        letter-spacing="2"
+        fill="#FFFFFF">EXAMFLOW</text>
+
+  <text x="126" y="88"
+        font-family="Arial, sans-serif"
+        font-size="16"
+        fill="#B9D4F0">Examination Management System</text>
+</svg>
