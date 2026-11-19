@@ -505,6 +505,110 @@ def apply_theme() -> str:
         color: {c['sidebar_text']} !important;
     }}
 
+
+    /* ================================================
+       EXAMFLOW: LIGHT/DARK CONTROL CONTRAST FIX
+       ================================================ */
+
+    /* Help icons beside labels and metric titles */
+    [data-testid="stTooltipIcon"],
+    [data-testid="stTooltipIcon"] button,
+    [data-testid="stTooltipIcon"] svg,
+    [data-testid="stWidgetLabel"] svg,
+    [data-testid="stMetricLabel"] svg {{
+        color: var(--exam-muted) !important;
+        stroke: var(--exam-muted) !important;
+        opacity: 1 !important;
+    }}
+
+    /* Text and number input outer containers */
+    [data-testid="stTextInput"] [data-baseweb="input"],
+    [data-testid="stNumberInput"] [data-baseweb="input"],
+    [data-testid="stDateInput"] [data-baseweb="input"],
+    [data-testid="stTimeInput"] [data-baseweb="input"],
+    [data-testid="stTextArea"] [data-baseweb="textarea"] {{
+        background: var(--exam-input) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 9px !important;
+    }}
+
+    /* Remove mismatched inner borders */
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input,
+    [data-testid="stTimeInput"] input,
+    [data-testid="stTextArea"] textarea {{
+        background: var(--exam-input) !important;
+        color: var(--exam-text) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
+        border: none !important;
+        outline: none !important;
+    }}
+
+    /* Number input plus/minus controls */
+    [data-testid="stNumberInput"] button {{
+        background: var(--exam-surface-alt) !important;
+        color: var(--exam-text) !important;
+        border-color: var(--exam-border) !important;
+        opacity: 1 !important;
+    }}
+
+    [data-testid="stNumberInput"] button svg {{
+        color: var(--exam-text) !important;
+        stroke: var(--exam-text) !important;
+        opacity: 1 !important;
+    }}
+
+    [data-testid="stNumberInput"] button:hover {{
+        background: var(--exam-border) !important;
+    }}
+
+    /* Selectbox and multiselect backgrounds */
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] > div {{
+        background: var(--exam-input) !important;
+        color: var(--exam-text) !important;
+        border-color: var(--exam-border) !important;
+        border-radius: 9px !important;
+    }}
+
+    [data-testid="stSelectbox"] [data-baseweb="select"] svg,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] svg {{
+        color: var(--exam-text) !important;
+        fill: currentColor !important;
+    }}
+
+    /* Dropdown menu and options */
+    [data-baseweb="popover"] [data-baseweb="menu"],
+    [data-baseweb="popover"] [role="listbox"] {{
+        background: var(--exam-surface) !important;
+        color: var(--exam-text) !important;
+    }}
+
+    [role="option"] {{
+        background: var(--exam-surface) !important;
+        color: var(--exam-text) !important;
+    }}
+
+    [role="option"]:hover,
+    [role="option"][aria-selected="true"] {{
+        background: var(--exam-surface-alt) !important;
+        color: var(--exam-text) !important;
+    }}
+
+    /* Form labels */
+    [data-testid="stWidgetLabel"],
+    [data-testid="stWidgetLabel"] p {{
+        color: var(--exam-text) !important;
+    }}
+
+    /* Preserve readable sidebar appearance controls */
+    [data-testid="stSidebar"] [data-testid="stRadio"] label *,
+    [data-testid="stSidebar"] [data-testid="stRadio"] p {{
+        color: {c['sidebar_text']} !important;
+    }}
+
+
     </style>
     """
 
