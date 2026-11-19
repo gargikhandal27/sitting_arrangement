@@ -12,6 +12,8 @@ from collections import defaultdict
 
 from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
+from database.models import Classroom
+from sqlalchemy import select
 from services.classroom_layout_service import (
     get_all_layouts,
     get_classroom_layout,
@@ -132,8 +134,20 @@ else:
         # LOAD CLASSROOM LAYOUT
         # --------------------------------------------------
 
+        
         with get_db_session() as db:
-            layout = get_classroom_layout(db, selected_room)
+            classroom = db.scalar(
+                select(Classroom).where(
+                    Classroom.room_id == selected_room
+                )
+            )
+
+            layout = (
+                get_classroom_layout(db, classroom.id)
+                if classroom is not None
+                else None
+            )
+
 
         if layout and layout.rows and layout.columns:
 
