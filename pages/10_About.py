@@ -6,7 +6,10 @@ Project overview, AI components, workflow,
 technology stack, and design principles.
 """
 
+import importlib
 import streamlit as st
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 
 

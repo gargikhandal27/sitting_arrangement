@@ -2,7 +2,10 @@
 """
 Natural-Language Requirements page (Phase 7)
 """
+import importlib
 import streamlit as st
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 
 apply_theme()

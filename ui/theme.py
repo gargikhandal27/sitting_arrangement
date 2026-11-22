@@ -1,5 +1,4 @@
-
-"""EXAMFLOW shared Navy & Ice Blue theme."""
+"""EXAMFLOW shared Navy & Ice Blue theme with comprehensive contrast fixes."""
 
 from __future__ import annotations
 
@@ -16,10 +15,17 @@ THEMES = {
         "border": "#D9E4F0",
         "primary": "#2878C8",
         "primary_hover": "#1D65AC",
-        "sidebar": "#142B4A",
-        "sidebar_text": "#EAF3FC",
+        "sidebar": "#EBF2FA",
+        "sidebar_text": "#142B4A",
+        "sidebar_muted": "#4B617D",
+        "sidebar_border": "#CADCED",
+        "sidebar_btn_bg": "#FFFFFF",
+        "sidebar_btn_border": "#CADCED",
         "input": "#FFFFFF",
         "shadow": "0 2px 12px rgba(20,43,74,.06)",
+        "tag_bg": "#DCEBFA",
+        "tag_border": "#B9D4F0",
+        "tag_text": "#142B4A",
     },
     "Dark": {
         "page": "#101B2A",
@@ -31,9 +37,16 @@ THEMES = {
         "primary": "#69A9EA",
         "primary_hover": "#8BBDF0",
         "sidebar": "#0B1522",
-        "sidebar_text": "#EAF3FC",
+        "sidebar_text": "#EDF5FF",
+        "sidebar_muted": "#8EA6C2",
+        "sidebar_border": "#1E2D40",
+        "sidebar_btn_bg": "#17263A",
+        "sidebar_btn_border": "#344B65",
         "input": "#203650",
         "shadow": "0 2px 12px rgba(0,0,0,.18)",
+        "tag_bg": "#203650",
+        "tag_border": "#344B65",
+        "tag_text": "#EDF5FF",
     },
 }
 
@@ -58,12 +71,11 @@ def apply_theme() -> str:
     )
 
     st.logo(
-    "ui/examflow_logo.svg",
-    size="large",
+        "ui/examflow_logo.svg",
+        size="large",
     )
 
     with st.sidebar:
-
         st.markdown(
             '<div class="exam-appearance-label">APPEARANCE</div>',
             unsafe_allow_html=True,
@@ -101,10 +113,18 @@ def apply_theme() -> str:
         --exam-primary-hover: {c['primary_hover']};
         --exam-input: {c['input']};
         --exam-shadow: {c['shadow']};
+        --exam-tag-bg: {c['tag_bg']};
+        --exam-tag-border: {c['tag_border']};
+        --exam-tag-text: {c['tag_text']};
+        --exam-sidebar-bg: {c['sidebar']};
+        --exam-sidebar-text: {c['sidebar_text']};
+        --exam-sidebar-muted: {c['sidebar_muted']};
+        --exam-sidebar-border: {c['sidebar_border']};
+        --exam-sidebar-btn-bg: {c['sidebar_btn_bg']};
+        --exam-sidebar-btn-border: {c['sidebar_btn_border']};
     }}
 
-    /* Main application background */
-
+    /* Main application background & text */
     html, body, [data-testid="stAppViewContainer"] {{
         background: var(--exam-page) !important;
         color: var(--exam-text) !important;
@@ -116,61 +136,173 @@ def apply_theme() -> str:
 
     .main .block-container {{
         max-width: 1500px;
-        padding-top: 2rem;
+        padding-top: 1.5rem;
         padding-bottom: 3rem;
     }}
 
-    /* Sidebar */
-
-    [data-testid="stSidebar"] {{
-        background: {c['sidebar']} !important;
-        border-right: 1px solid rgba(255,255,255,.08);
+    /* Sidebar Background and Container */
+    [data-testid="stSidebar"],
+    [data-testid="stSidebar"] > div,
+    [data-testid="stSidebarContent"],
+    [data-testid="stSidebarUserContent"],
+    section[data-testid="stSidebar"],
+    section[data-testid="stSidebar"] > div {{
+        background: var(--exam-sidebar-bg) !important;
+        background-color: var(--exam-sidebar-bg) !important;
+        border-right: 1px solid var(--exam-sidebar-border) !important;
     }}
 
-    [data-testid="stSidebar"] * {{
-        color: {c['sidebar_text']};
+    /* Sidebar Headings, Text, Labels */
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] h4,
+    [data-testid="stSidebar"] h5,
+    [data-testid="stSidebar"] h6 {{
+        color: var(--exam-sidebar-text) !important;
+        font-weight: 700 !important;
     }}
 
-    [data-testid="stSidebarNav"] {{
-        padding-top: .35rem;
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] li,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] span {{
+        color: var(--exam-sidebar-text) !important;
     }}
 
-    [data-testid="stSidebarNav"] a {{
-        border-radius: 9px;
-        margin: 3px 8px;
-        padding: 9px 12px;
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+    [data-testid="stSidebar"] .stCaption,
+    [data-testid="stSidebar"] caption {{
+        color: var(--exam-sidebar-muted) !important;
+        font-size: 13px !important;
     }}
 
-    [data-testid="stSidebarNav"] a:hover {{
-        background: rgba(105,169,234,.16);
-    }}
-
-    [data-testid="stSidebarNav"] a[aria-current="page"] {{
-        background: rgba(40,120,200,.35);
-        font-weight: 700;
-    }}
-
+    /* Sidebar Appearance Section */
     .exam-appearance-label {{
-        color: #B9D4F0 !important;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        margin-bottom: 5px;
+        color: var(--exam-sidebar-muted) !important;
+        font-size: 11px !important;
+        font-weight: 750 !important;
+        letter-spacing: 1px !important;
+        margin-bottom: 5px !important;
     }}
 
     .exam-sidebar-rule {{
-        border-top: 1px solid rgba(255,255,255,.17);
-        margin: 12px 0 14px;
+        border-top: 1px solid var(--exam-sidebar-border) !important;
+        margin: 12px 0 14px !important;
     }}
 
-    /* Headings and general text */
+    /* Sidebar Radio Buttons (Light/Dark) */
+    [data-testid="stSidebar"] [data-testid="stRadio"] label,
+    [data-testid="stSidebar"] [data-testid="stRadio"] label p,
+    [data-testid="stSidebar"] [data-testid="stRadio"] label span,
+    [data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] * {{
+        color: var(--exam-sidebar-text) !important;
+        font-weight: 600 !important;
+    }}
 
+    /* Sidebar Normal Buttons */
+    [data-testid="stSidebar"] .stButton > button,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {{
+        background: var(--exam-sidebar-btn-bg) !important;
+        background-color: var(--exam-sidebar-btn-bg) !important;
+        color: var(--exam-sidebar-text) !important;
+        border: 1px solid var(--exam-sidebar-btn-border) !important;
+        border-radius: 9px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+        font-weight: 650 !important;
+    }}
+
+    [data-testid="stSidebar"] .stButton > button *,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] * {{
+        color: var(--exam-sidebar-text) !important;
+    }}
+
+    [data-testid="stSidebar"] .stButton > button:hover {{
+        border-color: var(--exam-primary) !important;
+        color: var(--exam-primary) !important;
+    }}
+
+    [data-testid="stSidebar"] .stButton > button:hover * {{
+        color: var(--exam-primary) !important;
+    }}
+
+    /* Sidebar Primary Button (e.g. 🚀 Auto-Plan Exam) */
+    [data-testid="stSidebar"] .stButton > button[kind="primary"],
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {{
+        background: var(--exam-primary) !important;
+        background-color: var(--exam-primary) !important;
+        color: #FFFFFF !important;
+        border: 1px solid var(--exam-primary) !important;
+        font-weight: 700 !important;
+    }}
+
+    [data-testid="stSidebar"] .stButton > button[kind="primary"] *,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"] * {{
+        color: #FFFFFF !important;
+    }}
+
+    /* Sidebar Navigation Links */
+    [data-testid="stSidebarNav"] a {{
+        border-radius: 9px !important;
+        margin: 3px 8px !important;
+        padding: 9px 12px !important;
+        color: var(--exam-sidebar-text) !important;
+        font-weight: 550 !important;
+    }}
+
+    [data-testid="stSidebarNav"] a:not([aria-current="page"]) * {{
+        color: var(--exam-sidebar-text) !important;
+    }}
+
+    [data-testid="stSidebarNav"] a:hover {{
+        background: rgba(40,120,200,.14) !important;
+    }}
+
+    [data-testid="stSidebarNav"] a[aria-current="page"] {{
+        background: var(--exam-primary) !important;
+        color: #FFFFFF !important;
+        font-weight: 750 !important;
+    }}
+
+    [data-testid="stSidebarNav"] a[aria-current="page"] * {{
+        color: #FFFFFF !important;
+    }}
+
+    /* Hide 'app' and 'About' pages from sidebar navigation */
+    [data-testid="stSidebarNav"] ul li:first-child,
+    [data-testid="stSidebarNav"] li:has(a[href=""]),
+    [data-testid="stSidebarNav"] li:has(a[href="/"]),
+    [data-testid="stSidebarNav"] li:has(a[href$="app"]),
+    [data-testid="stSidebarNav"] li:has(a[href$="/app"]),
+    [data-testid="stSidebarNav"] li:has(a[href*="/app/"]),
+    [data-testid="stSidebarNav"] li:has(a[href*="About"]),
+    [data-testid="stSidebarNav"] li:has(a[href*="about"]),
+    [data-testid="stSidebarNav"] li:has(a[href*="10_About"]),
+    [data-testid="stSidebarNavLink"][href=""],
+    [data-testid="stSidebarNavLink"][href="/"],
+    [data-testid="stSidebarNavLink"][href$="app"],
+    [data-testid="stSidebarNavLink"][href$="/app"],
+    [data-testid="stSidebarNavLink"][href*="About"],
+    [data-testid="stSidebarNavLink"][href*="about"],
+    [data-testid="stSidebarNavLink"][href*="10_About"],
+    [data-testid="stSidebarNavLinkContainer"]:has(a[href=""]),
+    [data-testid="stSidebarNavLinkContainer"]:has(a[href="/"]),
+    [data-testid="stSidebarNavLinkContainer"]:has(a[href$="app"]),
+    [data-testid="stSidebarNavLinkContainer"]:has(a[href*="About"]),
+    [data-testid="stSidebarNavLinkContainer"]:has(a[href*="about"]),
+    [data-testid="stSidebarNavLinkContainer"]:has(a[href*="10_About"]) {{
+        display: none !important;
+    }}
+
+    /* Headings and typography */
     h1, h2, h3, h4, h5, h6 {{
         color: var(--exam-text) !important;
     }}
 
     h1 {{
-        font-size: 1.9rem !important;
+        font-size: 1.85rem !important;
         font-weight: 750 !important;
         letter-spacing: -.025em;
     }}
@@ -181,11 +313,25 @@ def apply_theme() -> str:
     }}
 
     h3 {{
-        font-size: 1.08rem !important;
+        font-size: 1.1rem !important;
         font-weight: 650 !important;
     }}
 
-    p, li, label {{
+    .main-header {{
+        font-size: 2.2rem !important;
+        font-weight: 800 !important;
+        color: var(--exam-text) !important;
+        margin-bottom: 0.2rem !important;
+    }}
+
+    .sub-header {{
+        font-size: 1.15rem !important;
+        font-weight: 500 !important;
+        color: var(--exam-muted) !important;
+        margin-bottom: 1.2rem !important;
+    }}
+
+    p, li, label, span {{
         color: var(--exam-text);
     }}
 
@@ -199,7 +345,6 @@ def apply_theme() -> str:
     }}
 
     /* Metric cards */
-
     [data-testid="stMetric"] {{
         background: var(--exam-surface) !important;
         border: 1px solid var(--exam-border);
@@ -219,56 +364,93 @@ def apply_theme() -> str:
     }}
 
     /* Containers and cards */
-
     [data-testid="stVerticalBlockBorderWrapper"] {{
         background: var(--exam-surface) !important;
         border-color: var(--exam-border) !important;
         border-radius: 12px;
     }}
 
-    /* Text inputs and text areas */
-
+    /* All Text Inputs */
     [data-testid="stTextInput"] input,
     [data-testid="stNumberInput"] input,
     [data-testid="stDateInput"] input,
     [data-testid="stTimeInput"] input,
-    [data-testid="stTextArea"] textarea {{
+    [data-testid="stTextArea"] textarea,
+    input[type="text"],
+    input[type="number"],
+    [data-baseweb="input"] input,
+    [data-baseweb="textarea"] textarea {{
         background: var(--exam-input) !important;
         color: var(--exam-text) !important;
-        border: 1px solid var(--exam-border);
-        border-radius: 9px;
+        -webkit-text-fill-color: var(--exam-text) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 9px !important;
     }}
 
     [data-testid="stTextInput"] input::placeholder,
     [data-testid="stTextArea"] textarea::placeholder {{
         color: var(--exam-muted) !important;
-        opacity: 1;
+        -webkit-text-fill-color: var(--exam-muted) !important;
+        opacity: 1 !important;
     }}
 
     [data-testid="stTextInput"] input:focus,
-    [data-testid="stTextArea"] textarea:focus {{
+    [data-testid="stTextArea"] textarea:focus,
+    [data-testid="stNumberInput"] input:focus {{
         border-color: var(--exam-primary) !important;
     }}
 
-    /* Select boxes and dropdowns */
-
-    [data-testid="stSelectbox"] [data-baseweb="select"],
-    [data-testid="stMultiSelect"] [data-baseweb="select"] {{
+    /* Selectbox and Multiselect */
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] > div {{
         background: var(--exam-input) !important;
         color: var(--exam-text) !important;
+        border-color: var(--exam-border) !important;
+        border-radius: 9px !important;
+    }}
+
+    [data-testid="stSelectbox"] [data-baseweb="select"] svg,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] svg {{
+        color: var(--exam-text) !important;
+        fill: currentColor !important;
+    }}
+
+    /* BaseWeb Multiselect Tags (Pills) */
+    [data-baseweb="tag"] {{
+        background: var(--exam-tag-bg) !important;
+        border: 1px solid var(--exam-tag-border) !important;
+        border-radius: 6px !important;
+    }}
+
+    [data-baseweb="tag"] * {{
+        color: var(--exam-tag-text) !important;
+        -webkit-text-fill-color: var(--exam-tag-text) !important;
+    }}
+
+    [data-baseweb="tag"] svg {{
+        color: var(--exam-tag-text) !important;
+        fill: var(--exam-tag-text) !important;
     }}
 
     [data-baseweb="popover"],
-    [data-baseweb="menu"] {{
+    [data-baseweb="menu"],
+    [data-baseweb="popover"] [role="listbox"] {{
         background: var(--exam-surface) !important;
+        border: 1px solid var(--exam-border) !important;
     }}
 
     [role="option"] {{
+        background: var(--exam-surface) !important;
+        color: var(--exam-text) !important;
+    }}
+
+    [role="option"]:hover,
+    [role="option"][aria-selected="true"] {{
+        background: var(--exam-surface-alt) !important;
         color: var(--exam-text) !important;
     }}
 
     /* Tabs */
-
     [data-testid="stTabs"] [role="tab"] {{
         color: var(--exam-text) !important;
         font-weight: 650;
@@ -279,150 +461,249 @@ def apply_theme() -> str:
         border-bottom-color: var(--exam-primary) !important;
     }}
 
-    /* Buttons */
+    [data-testid="stTabs"] [role="tab"] * {{
+        color: inherit !important;
+    }}
 
-    .stButton > button,
+    /* Buttons (Everywhere in Main Application) */
+    .stButton button,
+    button[data-testid="stBaseButton-secondary"],
+    button[kind="secondary"],
     [data-testid="stDownloadButton"] button {{
         background: var(--exam-surface) !important;
+        background-color: var(--exam-surface) !important;
         color: var(--exam-text) !important;
         border: 1px solid var(--exam-border) !important;
-        border-radius: 9px;
-        min-height: 2.55rem;
-        font-weight: 650;
+        border-radius: 9px !important;
+        min-height: 2.55rem !important;
+        font-weight: 650 !important;
     }}
 
-    .stButton > button[kind="primary"],
-    [data-testid="stDownloadButton"] button {{
-        background: var(--exam-primary) !important;
-        color: white !important;
-        border-color: var(--exam-primary) !important;
+    .stButton button *,
+    button[data-testid="stBaseButton-secondary"] *,
+    button[kind="secondary"] *,
+    [data-testid="stDownloadButton"] button * {{
+        color: var(--exam-text) !important;
     }}
 
-    .stButton > button:hover,
+    .stButton button:hover,
+    button[data-testid="stBaseButton-secondary"]:hover,
+    button[kind="secondary"]:hover,
     [data-testid="stDownloadButton"] button:hover {{
         border-color: var(--exam-primary) !important;
+        color: var(--exam-primary) !important;
     }}
 
-    /* File uploader */
-
-    [data-testid="stFileUploader"] {{
-        background: var(--exam-surface) !important;
-        border: 1px solid var(--exam-border);
-        border-radius: 10px;
-        padding: 10px;
+    .stButton button:hover *,
+    button[data-testid="stBaseButton-secondary"]:hover *,
+    button[kind="secondary"]:hover * {{
+        color: var(--exam-primary) !important;
     }}
 
-    [data-testid="stFileUploader"] section {{
-        background: var(--exam-surface-alt) !important;
-        border-radius: 8px;
+    .stButton button[kind="primary"],
+    button[data-testid="stBaseButton-primary"],
+    button[kind="primary"] {{
+        background: var(--exam-primary) !important;
+        background-color: var(--exam-primary) !important;
+        color: #FFFFFF !important;
+        border: 1px solid var(--exam-primary) !important;
+        border-radius: 9px !important;
+        font-weight: 700 !important;
     }}
 
-    /* Tables */
-
-    [data-testid="stDataFrame"],
-    [data-testid="stTable"] {{
-        background: var(--exam-surface);
-        border: 1px solid var(--exam-border);
-        border-radius: 10px;
-        overflow: hidden;
+    .stButton button[kind="primary"] *,
+    button[data-testid="stBaseButton-primary"] *,
+    button[kind="primary"] * {{
+        color: #FFFFFF !important;
     }}
 
-    /* Alerts */
+    .stButton button[kind="primary"]:hover,
+    button[data-testid="stBaseButton-primary"]:hover,
+    button[kind="primary"]:hover {{
+        background: var(--exam-primary-hover) !important;
+        background-color: var(--exam-primary-hover) !important;
+        border-color: var(--exam-primary-hover) !important;
+        color: #FFFFFF !important;
+    }}
 
+    /* Alerts (Info, Warning, Error, Success) */
     [data-testid="stAlert"] {{
-        border-radius: 10px;
-    }}
-
-    /* Dividers and links */
-
-    hr {{
-        border-color: var(--exam-border) !important;
-    }}
-
-    a {{
-        color: var(--exam-primary);
-    }}
-
-    /* Mobile layout */
-
-    @media (max-width: 768px) {{
-
-        .main .block-container {{
-            padding-top: 1.1rem;
-        }}
-
-        h1 {{
-            font-size: 1.55rem !important;
-        }}
-    }}
-        /* Make EXAMFLOW sidebar logo larger */
-    [data-testid="stSidebarHeader"] [data-testid="stLogo"] {{
-        width: 100% !important;
-        max-width: 320px !important;
-    }}
-
-    [data-testid="stSidebarHeader"] img {{
-        width: 100% !important;
-        max-width: 320px !important;
-        height: auto !important;
-        max-height: none !important;
-        object-fit: contain !important;
-    }}
-
-    
-    /* -----------------------------------------------
-       EXAMFLOW CONTRAST FIX
-       File uploaders, expanders, buttons and controls
-       ----------------------------------------------- */
-
-    /* File uploader dropzone */
-
-    [data-testid="stFileUploaderDropzone"] {{
         background: var(--exam-surface-alt) !important;
-        border: 1px dashed var(--exam-border) !important;
+        border: 1px solid var(--exam-border) !important;
         border-radius: 10px !important;
     }}
 
-    [data-testid="stFileUploaderDropzone"] *,
-    [data-testid="stFileUploaderDropzoneInstructions"],
-    [data-testid="stFileUploaderDropzoneInstructions"] * {{
+    [data-testid="stAlert"] [data-testid="stMarkdownContainer"] *,
+    [data-testid="stAlert"] p,
+    [data-testid="stAlert"] li,
+    [data-testid="stAlert"] span {{
         color: var(--exam-text) !important;
     }}
 
-    [data-testid="stFileUploaderDropzoneInstructions"] small,
-    [data-testid="stFileUploaderDropzoneInstructions"] span {{
-        color: var(--exam-muted) !important;
+    /* Chat Messages in Copilot */
+    [data-testid="stChatMessage"] {{
+        background: var(--exam-surface) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 12px !important;
+        padding: 1rem !important;
+        margin-bottom: 0.75rem !important;
+        box-shadow: var(--exam-shadow) !important;
     }}
 
-    /* Browse / Upload button inside file uploader */
+    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] * {{
+        color: var(--exam-text) !important;
+    }}
 
-    [data-testid="stFileUploaderDropzone"] button {{
+    [data-testid="stChatMessage"] p,
+    [data-testid="stChatMessage"] li,
+    [data-testid="stChatMessage"] span,
+    [data-testid="stChatMessage"] div {{
+        color: var(--exam-text) !important;
+    }}
+
+    [data-testid="stChatMessage"] code {{
+        background: var(--exam-tag-bg) !important;
+        color: var(--exam-tag-text) !important;
+        border: 1px solid var(--exam-tag-border) !important;
+        padding: 2px 7px !important;
+        border-radius: 5px !important;
+        font-weight: 700 !important;
+    }}
+
+    /* Chat Input Bar & Bottom Container */
+    [data-testid="stBottom"],
+    [data-testid="stBottom"] > div,
+    [data-testid="stBottomBlockContainer"],
+    .stBottom,
+    .stBottom > div,
+    div[class*="stBottom"],
+    div[class*="e87roqt3"],
+    div[class*="e87roqt4"],
+    div[class*="e87roqt"] {{
+        background: var(--exam-page) !important;
+        background-color: var(--exam-page) !important;
+    }}
+
+    [data-testid="stChatInput"],
+    .stChatInput {{
+        background: var(--exam-surface) !important;
+        background-color: var(--exam-surface) !important;
+        border: 1.5px solid var(--exam-border) !important;
+        border-radius: 12px !important;
+        box-shadow: var(--exam-shadow) !important;
+        overflow: hidden !important;
+    }}
+
+    [data-testid="stChatInput"] > div,
+    [data-testid="stChatInput"] > div > div,
+    .stChatInput > div,
+    div[class*="e17zv8n20"],
+    div[class*="e17zv8n21"],
+    div[class*="e17zv8n23"],
+    div[class*="e17zv8n24"],
+    div[class*="e17zv8n25"],
+    div[class*="e17zv8n26"],
+    div[class*="e17zv8n27"],
+    div[class*="e17zv8n28"] {{
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+    }}
+
+    [data-testid="stChatInput"]:focus-within,
+    .stChatInput:focus-within {{
+        border-color: var(--exam-primary) !important;
+        box-shadow: 0 0 0 2px rgba(40, 120, 200, 0.25) !important;
+    }}
+
+    [data-testid="stChatInput"] textarea,
+    [data-testid="stChatInputTextArea"],
+    textarea[data-testid="stChatInputTextArea"],
+    .stChatInput textarea,
+    textarea[class*="e17zv8n"] {{
+        background: transparent !important;
+        background-color: transparent !important;
+        color: var(--exam-text) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
+        caret-color: var(--exam-primary) !important;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        opacity: 1 !important;
+    }}
+
+    [data-testid="stChatInput"] textarea::placeholder,
+    [data-testid="stChatInputTextArea"]::placeholder,
+    .stChatInput textarea::placeholder {{
+        color: var(--exam-muted) !important;
+        -webkit-text-fill-color: var(--exam-muted) !important;
+        opacity: 0.85 !important;
+    }}
+
+    [data-testid="stChatInputSubmitButton"],
+    [data-testid="stChatInput"] button,
+    button[class*="e17zv8n29"] {{
         background: var(--exam-primary) !important;
         color: #FFFFFF !important;
-        border: 1px solid var(--exam-primary) !important;
         border-radius: 8px !important;
     }}
 
-    [data-testid="stFileUploaderDropzone"] button *,
-    [data-testid="stFileUploaderDropzone"] button svg {{
+    [data-testid="stChatInputSubmitButton"] svg,
+    [data-testid="stChatInput"] button svg {{
         color: #FFFFFF !important;
-        stroke: #FFFFFF !important;
+        fill: #FFFFFF !important;
     }}
 
-    [data-testid="stFileUploaderDropzone"] button:hover {{
-        background: var(--exam-primary-hover) !important;
+    /* DataFrames and Tables */
+    [data-testid="stDataFrame"],
+    [data-testid="stTable"] {{
+        background: var(--exam-surface) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 10px !important;
     }}
 
-    /* File upload labels and uploaded file names */
+    table {{
+        color: var(--exam-text) !important;
+    }}
 
-    [data-testid="stFileUploader"] label,
-    [data-testid="stFileUploader"] p,
-    [data-testid="stFileUploader"] span {{
+    th {{
+        background: var(--exam-surface-alt) !important;
+        color: var(--exam-text) !important;
+        font-weight: 700 !important;
+        border-bottom: 2px solid var(--exam-border) !important;
+    }}
+
+    td {{
         color: var(--exam-text);
+        border: 1px solid var(--exam-border);
     }}
 
-    /* Expander header */
+    /* JSON Viewer */
+    [data-testid="stJson"] {{
+        background: var(--exam-surface-alt) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 9px !important;
+        padding: 10px !important;
+    }}
 
+    [data-testid="stJson"] * {{
+        color: var(--exam-text) !important;
+    }}
+
+    /* Code Blocks */
+    [data-testid="stCodeBlock"],
+    [data-testid="stCode"] {{
+        background: var(--exam-surface-alt) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 9px !important;
+    }}
+
+    [data-testid="stCodeBlock"] code,
+    [data-testid="stCode"] code {{
+        color: var(--exam-text) !important;
+        background: transparent !important;
+    }}
+
+    /* Expanders */
     [data-testid="stExpander"] {{
         background: var(--exam-surface) !important;
         border: 1px solid var(--exam-border) !important;
@@ -440,174 +721,94 @@ def apply_theme() -> str:
     }}
 
     [data-testid="stExpander"] summary *,
-    [data-testid="stExpander"] summary p,
     [data-testid="stExpander"] summary svg {{
         color: var(--exam-text) !important;
         stroke: currentColor;
-    }}
-
-    [data-testid="stExpander"] summary:hover {{
-        background: var(--exam-surface-alt) !important;
     }}
 
     [data-testid="stExpander"] details > div {{
         color: var(--exam-text) !important;
     }}
 
-    /* Button text and icons */
-
-    .stButton > button *,
-    [data-testid="stDownloadButton"] button * {{
-        color: inherit !important;
+    /* File Uploader Dropzone */
+    [data-testid="stFileUploader"] {{
+        background: var(--exam-surface) !important;
+        border: 1px solid var(--exam-border);
+        border-radius: 10px;
+        padding: 10px;
     }}
 
-    .stButton > button[kind="primary"] {{
+    [data-testid="stFileUploaderDropzone"] {{
+        background: var(--exam-surface-alt) !important;
+        border: 1px dashed var(--exam-border) !important;
+        border-radius: 10px !important;
+    }}
+
+    [data-testid="stFileUploaderDropzone"] *,
+    [data-testid="stFileUploaderDropzoneInstructions"] * {{
+        color: var(--exam-text) !important;
+    }}
+
+    [data-testid="stFileUploaderDropzone"] button {{
         background: var(--exam-primary) !important;
         color: #FFFFFF !important;
     }}
 
-    /* Selectbox and multiselect inner text */
-
-    [data-testid="stSelectbox"] [data-baseweb="select"] *,
-    [data-testid="stMultiSelect"] [data-baseweb="select"] * {{
-        color: var(--exam-text) !important;
+    [data-testid="stFileUploaderDropzone"] button * {{
+        color: #FFFFFF !important;
     }}
 
-    /* Inputs and placeholders */
-
-    [data-testid="stNumberInput"] button {{
-        color: var(--exam-text) !important;
-    }}
-
-    [data-testid="stTextInput"] input,
-    [data-testid="stNumberInput"] input,
-    [data-testid="stTextArea"] textarea {{
-        -webkit-text-fill-color: var(--exam-text) !important;
-    }}
-
-    /* Tabs */
-
-    [data-testid="stTabs"] [role="tab"] * {{
-        color: inherit !important;
-    }}
-
-    /* Checkbox and radio labels */
-
+    /* Checkbox & Radio Labels */
     [data-testid="stCheckbox"] label *,
     [data-testid="stRadio"] label * {{
         color: var(--exam-text);
     }}
 
-    /* Keep sidebar appearance selector readable */
-
-    [data-testid="stSidebar"] [data-testid="stRadio"] label *,
-    [data-testid="stSidebar"] [data-testid="stRadio"] p {{
-        color: {c['sidebar_text']} !important;
-    }}
-
-
-    /* ================================================
-       EXAMFLOW: LIGHT/DARK CONTROL CONTRAST FIX
-       ================================================ */
-
-    /* Help icons beside labels and metric titles */
-    [data-testid="stTooltipIcon"],
-    [data-testid="stTooltipIcon"] button,
-    [data-testid="stTooltipIcon"] svg,
-    [data-testid="stWidgetLabel"] svg,
-    [data-testid="stMetricLabel"] svg {{
-        color: var(--exam-muted) !important;
-        stroke: var(--exam-muted) !important;
-        opacity: 1 !important;
-    }}
-
-    /* Text and number input outer containers */
-    [data-testid="stTextInput"] [data-baseweb="input"],
-    [data-testid="stNumberInput"] [data-baseweb="input"],
-    [data-testid="stDateInput"] [data-baseweb="input"],
-    [data-testid="stTimeInput"] [data-baseweb="input"],
-    [data-testid="stTextArea"] [data-baseweb="textarea"] {{
-        background: var(--exam-input) !important;
-        border: 1px solid var(--exam-border) !important;
-        border-radius: 9px !important;
-    }}
-
-    /* Remove mismatched inner borders */
-    [data-testid="stTextInput"] input,
-    [data-testid="stNumberInput"] input,
-    [data-testid="stDateInput"] input,
-    [data-testid="stTimeInput"] input,
-    [data-testid="stTextArea"] textarea {{
-        background: var(--exam-input) !important;
-        color: var(--exam-text) !important;
-        -webkit-text-fill-color: var(--exam-text) !important;
-        border: none !important;
-        outline: none !important;
-    }}
-
-    /* Number input plus/minus controls */
-    [data-testid="stNumberInput"] button {{
-        background: var(--exam-surface-alt) !important;
-        color: var(--exam-text) !important;
-        border-color: var(--exam-border) !important;
-        opacity: 1 !important;
-    }}
-
-    [data-testid="stNumberInput"] button svg {{
-        color: var(--exam-text) !important;
-        stroke: var(--exam-text) !important;
-        opacity: 1 !important;
-    }}
-
-    [data-testid="stNumberInput"] button:hover {{
-        background: var(--exam-border) !important;
-    }}
-
-    /* Selectbox and multiselect backgrounds */
-    [data-testid="stSelectbox"] [data-baseweb="select"] > div,
-    [data-testid="stMultiSelect"] [data-baseweb="select"] > div {{
-        background: var(--exam-input) !important;
-        color: var(--exam-text) !important;
-        border-color: var(--exam-border) !important;
-        border-radius: 9px !important;
-    }}
-
-    [data-testid="stSelectbox"] [data-baseweb="select"] svg,
-    [data-testid="stMultiSelect"] [data-baseweb="select"] svg {{
-        color: var(--exam-text) !important;
-        fill: currentColor !important;
-    }}
-
-    /* Dropdown menu and options */
-    [data-baseweb="popover"] [data-baseweb="menu"],
-    [data-baseweb="popover"] [role="listbox"] {{
-        background: var(--exam-surface) !important;
-        color: var(--exam-text) !important;
-    }}
-
-    [role="option"] {{
-        background: var(--exam-surface) !important;
-        color: var(--exam-text) !important;
-    }}
-
-    [role="option"]:hover,
-    [role="option"][aria-selected="true"] {{
-        background: var(--exam-surface-alt) !important;
-        color: var(--exam-text) !important;
-    }}
-
-    /* Form labels */
     [data-testid="stWidgetLabel"],
     [data-testid="stWidgetLabel"] p {{
         color: var(--exam-text) !important;
     }}
 
-    /* Preserve readable sidebar appearance controls */
-    [data-testid="stSidebar"] [data-testid="stRadio"] label *,
-    [data-testid="stSidebar"] [data-testid="stRadio"] p {{
-        color: {c['sidebar_text']} !important;
+    /* Tooltips */
+    [data-testid="stTooltipIcon"] svg,
+    [data-testid="stWidgetLabel"] svg,
+    [data-testid="stMetricLabel"] svg {{
+        color: var(--exam-muted) !important;
+        stroke: var(--exam-muted) !important;
     }}
 
+    /* Dividers and links */
+    hr {{
+        border-color: var(--exam-border) !important;
+    }}
+
+    a {{
+        color: var(--exam-primary);
+    }}
+
+    /* Mobile layout */
+    @media (max-width: 768px) {{
+        .main .block-container {{
+            padding-top: 1rem;
+        }}
+        h1 {{
+            font-size: 1.5rem !important;
+        }}
+    }}
+
+    /* Logo */
+    [data-testid="stSidebarHeader"] [data-testid="stLogo"] {{
+        width: 100% !important;
+        max-width: 320px !important;
+    }}
+
+    [data-testid="stSidebarHeader"] img {{
+        width: 100% !important;
+        max-width: 320px !important;
+        height: auto !important;
+        max-height: none !important;
+        object-fit: contain !important;
+    }}
 
     </style>
     """
@@ -615,4 +816,3 @@ def apply_theme() -> str:
     st.markdown(css, unsafe_allow_html=True)
 
     return mode
-

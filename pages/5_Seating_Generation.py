@@ -1,13 +1,17 @@
-
 """
-Seating Generation page (Phase 8)
+Seating Generation page (Phase 8 + AI Infeasibility Agent)
 """
+import importlib
 import streamlit as st
 import pandas as pd
 
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
-from services.allocation_service import run_seating_generation
+from services.allocation_service import run_seating_generation, load_students_for_solver, load_supervisors_for_solver
+from services.classroom_layout_service import get_all_layouts
+from services.infeasibility_agent import diagnose_seating_feasibility
 
 
 # --------------------------------------------------
@@ -21,7 +25,7 @@ st.title("🪑 Seating Generation")
 
 st.markdown(
     "Generate an examination seating plan using the "
-    "OR-Tools CP-SAT optimization solver."
+    "OR-Tools CP-SAT optimization solver with **AI Infeasibility Diagnostics**."
 )
 
 st.divider()
@@ -112,6 +116,27 @@ with st.container(border=True):
             ),
         )
 
+    # Classroom selection filter
+    with get_db_session() as db:
+        all_db_layouts = get_all_layouts(db)
+
+    active_room_options = [
+        f"{lay.room_id} ({lay.usable_seats} seats)"
+        for lay in all_db_layouts if lay.is_available and lay.usable_seats > 0
+    ]
+    room_id_map = {
+        f"{lay.room_id} ({lay.usable_seats} seats)": lay.room_id
+        for lay in all_db_layouts if lay.is_available and lay.usable_seats > 0
+    }
+
+    selected_room_labels = st.multiselect(
+        "Classrooms to include in this examination",
+        options=active_room_options,
+        default=active_room_options,
+        help="Select which classrooms to include. Deselect rooms to test capacity shortages or restrict exams to specific halls."
+    )
+    selected_room_ids = [room_id_map[lbl] for lbl in selected_room_labels]
+
     minimize_classrooms = st.checkbox(
         "Minimize the number of classrooms",
         value=bool(default_min),
@@ -123,7 +148,7 @@ with st.container(border=True):
 
 
 # --------------------------------------------------
-# GENERATE SEATING ARRANGEMENT
+# PRE-FLIGHT FEASIBILITY & GENERATE BUTTONS
 # --------------------------------------------------
 
 st.divider()
@@ -131,32 +156,100 @@ st.divider()
 st.header("Generate Seating Plan")
 
 st.markdown(
-    "When you are ready, run the solver using the selected settings."
+    "You can run an **AI Pre-flight Feasibility Check** to mathematically test whether "
+    "a solution exists before launching the solver."
 )
 
-if st.button(
-    "🚀 Generate Seating Arrangement",
-    type="primary",
-    use_container_width=True,
-):
+btn_col1, btn_col2 = st.columns([1, 1])
 
+with btn_col1:
+    run_preflight = st.button(
+        "🤖 AI Pre-flight Feasibility Check",
+        use_container_width=True,
+        help="Checks bipartite graph capacity and batch bounds without running the full solver.",
+    )
+
+with btn_col2:
+    run_solver = st.button(
+        "🚀 Generate Seating Arrangement",
+        type="primary",
+        use_container_width=True,
+    )
+
+# Pre-flight check execution
+if run_preflight:
+    with get_db_session() as db:
+        students = load_students_for_solver(db)
+        layouts = get_all_layouts(db)
+        if selected_room_ids is not None:
+            layouts = [lay for lay in layouts if lay.room_id in selected_room_ids]
+        supervisors = load_supervisors_for_solver(db)
+
+        diag_report = diagnose_seating_feasibility(
+            students=students,
+            layouts=layouts,
+            adjacency_mode=adjacency_mode,
+            time_limit_seconds=int(time_limit),
+            supervisors=supervisors,
+        )
+        st.session_state["preflight_report"] = diag_report
+
+# Display Pre-flight Report if available
+if "preflight_report" in st.session_state:
+    diag = st.session_state["preflight_report"]
+    with st.container(border=True):
+        st.subheader("🔍 AI Pre-Flight Feasibility Report")
+        if diag.is_feasible:
+            st.success(f"**Feasible**: {diag.summary}")
+        else:
+            st.warning(f"**Potential Infeasibility**: {diag.summary}")
+
+        # Issues
+        for issue in diag.issues:
+            icon = "❌" if issue.severity == "error" else "⚠️"
+            st.markdown(f"- **{icon} {issue.title}**: {issue.description}")
+
+        # Remediations
+        if diag.remediations:
+            st.markdown("##### 💡 Suggested Actions:")
+            for r in diag.remediations:
+                st.markdown(f"• **{r.title}**: {r.description} *({r.impact})*")
+
+
+# Seating solver execution
+if run_solver:
     try:
-        with st.spinner(
-            "Running OR-Tools CP-SAT solver. Please wait..."
-        ):
+        with st.spinner("Running OR-Tools CP-SAT solver. Please wait..."):
             with get_db_session() as db:
                 result, layouts = run_seating_generation(
                     db,
                     adjacency_mode=adjacency_mode,
                     minimize_classrooms=minimize_classrooms,
                     time_limit_seconds=int(time_limit),
+                    selected_room_ids=selected_room_ids,
                 )
 
         # Save result for display after reruns.
         st.session_state["last_seating_result"] = result
-
-        # Reset the result table view when a new plan is generated.
+        st.session_state["last_seating_layouts"] = layouts
         st.session_state["seating_generation_completed"] = True
+
+        # Run diagnosis if not optimal/feasible
+        if result.status not in ("OPTIMAL", "FEASIBLE"):
+            with get_db_session() as db:
+                students = load_students_for_solver(db)
+                supervisors = load_supervisors_for_solver(db)
+                diag = diagnose_seating_feasibility(
+                    students=students,
+                    layouts=layouts,
+                    adjacency_mode=adjacency_mode,
+                    time_limit_seconds=int(time_limit),
+                    solver_result=result,
+                    supervisors=supervisors,
+                )
+                st.session_state["infeasibility_diagnosis"] = diag
+        else:
+            st.session_state.pop("infeasibility_diagnosis", None)
 
     except Exception as error:
         st.error(
@@ -221,6 +314,79 @@ if result is not None:
             )
 
     # --------------------------------------------------
+    # AI INFEASIBILITY DIAGNOSTICS & REMEDIATION PANEL
+    # --------------------------------------------------
+    diag = st.session_state.get("infeasibility_diagnosis")
+    if result.status not in ("OPTIMAL", "FEASIBLE") and diag is not None:
+
+        st.divider()
+        st.subheader("🤖 AI Infeasibility Diagnostic & Negotiation Agent")
+
+        st.error(
+            f"**Root Cause Diagnosis**: {diag.summary}"
+        )
+
+        # Issues details
+        with st.expander("🔍 Detailed Root Cause Breakdown", expanded=True):
+            for issue in diag.issues:
+                st.markdown(f"#### ⚠️ {issue.title}")
+                st.write(issue.description)
+
+        # Batch density breakdown table if present
+        if diag.batch_metrics:
+            st.markdown("#### 📊 Batch Independent Capacity Breakdown")
+            st.caption(
+                "Shows the maximum number of seats a single batch can legally occupy across all active classrooms "
+                "under the current separation rules vs actual student headcount."
+            )
+            batch_df = pd.DataFrame([
+                {
+                    "Batch": b.batch,
+                    "Students": b.student_count,
+                    "Max Safe Capacity": b.max_independent_capacity,
+                    "Capacity Utilization": f"{b.utilization_pct}%",
+                    "Status": "❌ Bottleneck" if b.is_bottleneck else "✅ Fits",
+                }
+                for b in diag.batch_metrics
+            ])
+            st.dataframe(batch_df, use_container_width=True, hide_index=True)
+
+        # Interactive 1-Click Remediations
+        if diag.remediations:
+            st.subheader("💡 1-Click AI Remediation Proposals")
+            st.markdown(
+                "The AI Diagnostic Agent proposes the following automated trade-offs to achieve a feasible solution:"
+            )
+
+            for i, rem in enumerate(diag.remediations):
+                with st.container(border=True):
+                    rem_col1, rem_col2 = st.columns([3, 1])
+                    with rem_col1:
+                        st.markdown(f"**{rem.title}**")
+                        st.caption(rem.description)
+                        st.info(f"**Expected Impact**: {rem.impact}")
+
+                    with rem_col2:
+                        if rem.action_type == "relax_adjacency":
+                            if st.button("⚡ Apply & Re-solve", key=f"rem_btn_{i}", type="primary"):
+                                st.session_state["confirmed_nl_config"] = st.session_state.get("confirmed_nl_config", {})
+                                st.session_state["confirmed_nl_config"]["adjacency_mode"] = rem.payload.get("target_adjacency", "horizontal")
+                                st.rerun()
+
+                        elif rem.action_type == "increase_time":
+                            if st.button("⏱️ Increase & Re-solve", key=f"rem_btn_{i}", type="primary"):
+                                st.session_state["confirmed_nl_config"] = st.session_state.get("confirmed_nl_config", {})
+                                st.session_state["confirmed_nl_config"]["solver_time_limit_seconds"] = rem.payload.get("time_limit", 120)
+                                st.rerun()
+
+                        elif rem.action_type == "activate_room":
+                            st.page_link(
+                                "pages/3_Classroom_Layout_Management.py",
+                                label="Go to Classrooms",
+                                icon="🏫",
+                            )
+
+    # --------------------------------------------------
     # ASSIGNMENT TABLE
     # --------------------------------------------------
 
@@ -263,7 +429,7 @@ if result is not None:
     else:
         st.warning(
             "No assignments were produced. "
-            "Review the solver status and examination constraints."
+            "Review the AI Infeasibility Diagnostic panel above for concrete remedies."
         )
 
 else:
@@ -276,9 +442,9 @@ else:
 
         st.markdown(
             "1. Review the solver configuration.\n"
-            "2. Select the required seating constraints.\n"
+            "2. Run the **AI Pre-flight Feasibility Check** to detect any capacity or batch bottlenecks.\n"
             "3. Click **Generate Seating Arrangement**.\n"
-            "4. Review the solver results and download the assignments."
+            "4. Review the solver results or AI Diagnostic suggestions."
         )
 
 
@@ -289,5 +455,5 @@ else:
 st.divider()
 
 st.caption(
-    "EXAMFLOW · Seating Generation · OR-Tools CP-SAT Solver"
+    "EXAMFLOW · Seating Generation · OR-Tools CP-SAT Solver with AI Infeasibility Diagnostics"
 )

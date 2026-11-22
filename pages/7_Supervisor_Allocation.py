@@ -3,9 +3,12 @@
 Supervisor Allocation page (Phase 9)
 """
 
+import importlib
 import streamlit as st
 import pandas as pd
 
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
 from services.allocation_service import run_supervisor_allocation

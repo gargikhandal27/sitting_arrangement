@@ -183,6 +183,22 @@ def set_seat_availability(
     return True, f"Seat {seat.seat_code} marked as {status}."
 
 
+def set_classroom_availability(
+    db: Session,
+    classroom_id: int,
+    is_available: bool,
+) -> Tuple[bool, str]:
+    """Mark an entire classroom active or inactive."""
+    classroom = db.get(Classroom, classroom_id)
+    if not classroom:
+        return False, "Classroom not found."
+
+    classroom.is_available = is_available
+    db.commit()
+    status = "active" if is_available else "inactive"
+    return True, f"Classroom '{classroom.room_id}' is now marked as {status}."
+
+
 def confirm_layout(db: Session, classroom_id: int) -> Tuple[bool, str]:
     """Mark all seats of a classroom as confirmed."""
     seats = db.scalars(select(Seat).where(Seat.classroom_id == classroom_id)).all()

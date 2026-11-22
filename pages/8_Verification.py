@@ -7,8 +7,11 @@ assignments against hard constraints.
 """
 
 import json
+import importlib
 import streamlit as st
 
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
 from services.allocation_service import load_students_for_solver

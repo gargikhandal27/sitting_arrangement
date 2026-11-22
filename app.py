@@ -4,7 +4,10 @@ EXAMFLOW - Main entry point
 Examination Management System
 """
 
+import importlib
 import streamlit as st
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 
 # Page configuration must be the first Streamlit command
@@ -85,6 +88,8 @@ def main():
     - ✅ **Phase 10** – Independent verification
     - ✅ **Phase 11** – Multimodal integration polish
     - ✅ **Phase 12** – Reports and history
+    - ✅ **Phase 13** – AI Infeasibility Diagnostic & Negotiation Agent
+    - ✅ **Phase 14** – Autonomous AI Copilot & Natural Language Orchestrator
     """)
 
     st.success(

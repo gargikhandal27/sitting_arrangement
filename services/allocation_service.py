@@ -48,11 +48,14 @@ def run_seating_generation(
     adjacency_mode: str = "horizontal_vertical",
     minimize_classrooms: bool = True,
     time_limit_seconds: int = 60,
+    selected_room_ids: Optional[List[str]] = None,
 ) -> Tuple[SolverResult, List[ClassroomLayout]]:
     students = load_students_for_solver(db)
     layouts = get_all_layouts(db)
     # Keep only available classrooms that have seats
     layouts = [lay for lay in layouts if lay.is_available and lay.usable_seats > 0]
+    if selected_room_ids is not None:
+        layouts = [lay for lay in layouts if lay.room_id in selected_room_ids]
 
     result = solve_seating(
         students=students,

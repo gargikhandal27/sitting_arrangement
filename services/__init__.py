@@ -6,3 +6,5 @@ from services import natural_language_service
 from services import allocation_service
 from services import verification_service
 from services import reporting_service
+from services import infeasibility_agent
+from services import copilot_agent

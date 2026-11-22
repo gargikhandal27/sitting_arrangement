@@ -5,10 +5,13 @@ Manual layout creation, computer vision analysis,
 seat visualization, and seat availability management.
 """
 
+import importlib
 import streamlit as st
 import pandas as pd
 from pathlib import Path
 
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 
 from database.connection import init_db, get_db_session
@@ -17,6 +20,7 @@ from services.classroom_layout_service import (
     create_manual_classroom,
     get_classroom_layout,
     set_seat_availability,
+    set_classroom_availability,
     confirm_layout,
     get_layout_summary,
     build_adjacency_list,
@@ -488,6 +492,60 @@ with tab_view:
 
         st.divider()
 
+        # Classroom Availability Manager
+        st.markdown("### ⚡ Classroom Active Status & Availability")
+        st.caption(
+            "Toggle classrooms active or inactive. Inactive classrooms will be excluded from seating optimization."
+        )
+
+        def on_room_toggle(classroom_id, widget_key):
+            new_val = st.session_state[widget_key]
+            with get_db_session() as db:
+                set_classroom_availability(db, classroom_id, new_val)
+
+        quick_c1, quick_c2 = st.columns(2)
+        with quick_c1:
+            if st.button("✅ Activate All Classrooms", use_container_width=True):
+                with get_db_session() as db:
+                    for s in summaries:
+                        cid = s["classroom_id"]
+                        set_classroom_availability(db, cid, True)
+                        st.session_state[f"toggle_room_{cid}"] = True
+                st.success("All classrooms activated.")
+                st.rerun()
+
+        with quick_c2:
+            if st.button("⏹️ Deactivate All Classrooms", use_container_width=True):
+                with get_db_session() as db:
+                    for s in summaries:
+                        cid = s["classroom_id"]
+                        set_classroom_availability(db, cid, False)
+                        st.session_state[f"toggle_room_{cid}"] = False
+                st.warning("All classrooms deactivated.")
+                st.rerun()
+
+        st.write("")
+        # Individual toggles in 3 columns
+        cols = st.columns(3)
+        for idx, s in enumerate(summaries):
+            cid = s["classroom_id"]
+            k = f"toggle_room_{cid}"
+            db_val = bool(s.get("is_available", True))
+            if k not in st.session_state:
+                st.session_state[k] = db_val
+
+            with cols[idx % 3]:
+                with st.container(border=True):
+                    st.checkbox(
+                        f"**{s['room_id']}** ({s['usable_seats']} seats)",
+                        key=k,
+                        on_change=on_room_toggle,
+                        args=(cid, k),
+                        help=f"Room: {s['room_name']}. Check to mark available.",
+                    )
+
+        st.divider()
+
         st.markdown("### Seat Grid Preview")
 
         room_options = {
@@ -542,6 +600,8 @@ with tab_view:
                 ">
                 """
 
+                is_dark_view = st.session_state.get("examflow_appearance") == "Dark"
+
                 for r in range(1, layout.rows + 1):
 
                     html += "<tr>"
@@ -552,30 +612,30 @@ with tab_view:
 
                         if seat is None:
 
-                            bg = "#E2E8F0"
-                            border = "#94A3B8"
-                            color = "#475569"
+                            bg = "#203650" if is_dark_view else "#E2E8F0"
+                            border = "#344B65" if is_dark_view else "#94A3B8"
+                            color = "#B2C2D5" if is_dark_view else "#475569"
                             label = "?"
 
                         elif seat.is_available:
 
-                            bg = "#DCFCE7"
-                            border = "#16A36A"
-                            color = "#166534"
+                            bg = "#153E2B" if is_dark_view else "#DCFCE7"
+                            border = "#2D8F60" if is_dark_view else "#16A36A"
+                            color = "#D8F3DC" if is_dark_view else "#166534"
                             label = seat.seat_code
 
                         else:
 
-                            bg = "#FEE2E2"
-                            border = "#DC4545"
-                            color = "#991B1B"
+                            bg = "#4A1E1E" if is_dark_view else "#FEE2E2"
+                            border = "#C94C4C" if is_dark_view else "#DC4545"
+                            color = "#FFD6D6" if is_dark_view else "#991B1B"
                             label = "X"
 
                         html += (
                             "<td style='"
                             f"background:{bg};"
                             f"border:1px solid {border};"
-                            f"color:{color};"
+                            f"color:{color} !important;"
                             "width:65px;"
                             "height:42px;"
                             "text-align:center;"
@@ -584,7 +644,7 @@ with tab_view:
                             "font-weight:600;"
                             "padding:4px;"
                             "'>"
-                            f"{label}"
+                            f"<span style='color:{color} !important;'>{label}</span>"
                             "</td>"
                         )
 

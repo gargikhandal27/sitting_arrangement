@@ -5,11 +5,14 @@ Displays actual assignments on classroom grids.
 """
 
 import html
+import importlib
 import streamlit as st
 import pandas as pd
 
 from collections import defaultdict
 
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
 from database.models import Classroom
@@ -195,32 +198,42 @@ else:
 
             st.subheader("Seat Status Legend")
 
+            is_dark = st.session_state.get("examflow_appearance") == "Dark"
+            if is_dark:
+                occ_bg, occ_border, occ_text = "#1A3B60", "#5E9CE4", "#EDF5FF"
+                avail_bg, avail_border, avail_text = "#153E2B", "#2D8F60", "#D8F3DC"
+                unavail_bg, unavail_border, unavail_text = "#4A1E1E", "#C94C4C", "#FFD6D6"
+            else:
+                occ_bg, occ_border, occ_text = "#DCEBFA", "#2878C8", "#142B4A"
+                avail_bg, avail_border, avail_text = "#DDF3E7", "#16A36A", "#145A32"
+                unavail_bg, unavail_border, unavail_text = "#FCE3E3", "#DC4545", "#922B21"
+
             legend1, legend2, legend3 = st.columns(3)
 
             with legend1:
                 st.markdown(
-                    '<div style="background:#DCEBFA; color:#142B4A; '
-                    'padding:10px; border-radius:8px; text-align:center; '
-                    'border:1px solid #2878C8;">'
-                    '<b>Occupied</b></div>',
+                    f'<div style="background:{occ_bg}; color:{occ_text} !important; '
+                    f'padding:10px; border-radius:8px; text-align:center; '
+                    f'border:1px solid {occ_border};">'
+                    f'<b style="color:{occ_text} !important;">Occupied</b></div>',
                     unsafe_allow_html=True,
                 )
 
             with legend2:
                 st.markdown(
-                    '<div style="background:#DDF3E7; color:#145A32; '
-                    'padding:10px; border-radius:8px; text-align:center; '
-                    'border:1px solid #16A36A;">'
-                    '<b>Available</b></div>',
+                    f'<div style="background:{avail_bg}; color:{avail_text} !important; '
+                    f'padding:10px; border-radius:8px; text-align:center; '
+                    f'border:1px solid {avail_border};">'
+                    f'<b style="color:{avail_text} !important;">Available</b></div>',
                     unsafe_allow_html=True,
                 )
 
             with legend3:
                 st.markdown(
-                    '<div style="background:#FCE3E3; color:#922B21; '
-                    'padding:10px; border-radius:8px; text-align:center; '
-                    'border:1px solid #DC4545;">'
-                    '<b>Unavailable</b></div>',
+                    f'<div style="background:{unavail_bg}; color:{unavail_text} !important; '
+                    f'padding:10px; border-radius:8px; text-align:center; '
+                    f'border:1px solid {unavail_border};">'
+                    f'<b style="color:{unavail_text} !important;">Unavailable</b></div>',
                     unsafe_allow_html=True,
                 )
 
@@ -262,23 +275,23 @@ else:
 
                     if seat is None:
 
-                        background = "#E5E7EB"
-                        border = "#9CA3AF"
-                        text_color = "#52657D"
+                        background = "#203650" if is_dark else "#E5E7EB"
+                        border = "#344B65" if is_dark else "#9CA3AF"
+                        text_color = "#B2C2D5" if is_dark else "#52657D"
                         content = "?"
 
                     elif not seat.is_available:
 
-                        background = "#FCE3E3"
-                        border = "#DC4545"
-                        text_color = "#922B21"
-                        content = "UNAVAILABLE"
+                        background = unavail_bg
+                        border = unavail_border
+                        text_color = unavail_text
+                        content = f"<span style='color:{text_color} !important;'>UNAVAILABLE</span>"
 
                     elif assignment:
 
-                        background = "#DCEBFA"
-                        border = "#2878C8"
-                        text_color = "#142B4A"
+                        background = occ_bg
+                        border = occ_border
+                        text_color = occ_text
 
                         roll_number = html.escape(
                             str(assignment.get("roll_number", ""))
@@ -289,21 +302,22 @@ else:
                         )
 
                         content = (
-                            f"<b>{roll_number}</b>"
+                            f"<b style='color:{text_color} !important;'>{roll_number}</b>"
                             f"<br>"
-                            f"<span style='font-size:10px;'>"
+                            f"<span style='font-size:10px; color:{text_color} !important;'>"
                             f"{batch}</span>"
                         )
 
                     else:
 
-                        background = "#DDF3E7"
-                        border = "#16A36A"
-                        text_color = "#145A32"
+                        background = avail_bg
+                        border = avail_border
+                        text_color = avail_text
 
                         content = html.escape(
                             str(seat.seat_code)
                         )
+                        content = f"<span style='color:{text_color} !important;'>{content}</span>"
 
                     html_grid += (
                         "<td style='"
@@ -316,7 +330,7 @@ else:
                         "border:1px solid "
                         f"{border};"
                         f"background:{background};"
-                        f"color:{text_color};"
+                        f"color:{text_color} !important;"
                         "font-size:11px;"
                         "font-family:Arial,sans-serif;"
                         "'>"

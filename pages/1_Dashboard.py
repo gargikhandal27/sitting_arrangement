@@ -4,8 +4,11 @@ EXAMFLOW - Dashboard
 Overview of examination management system status.
 """
 
+import importlib
 import streamlit as st
 
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
 from database import repository as repo
@@ -206,6 +209,19 @@ with action4:
             label="Generate Seating",
             icon="🪑"
         )
+
+with st.container(border=True):
+    st.markdown("### 🤖 Autonomous AI Copilot & Diagnostics")
+    st.write(
+        "Chat with the AI Copilot to check seating feasibility, diagnose capacity bottlenecks, "
+        "or orchestrate the entire examination allocation pipeline in one step."
+    )
+    st.page_link(
+        "pages/11_AI_Copilot.py",
+        label="Launch AI Copilot",
+        icon="🤖"
+    )
+
 
 
 # --------------------------------------------------

@@ -4,9 +4,12 @@ EXAMFLOW - Student, Classroom & Supervisor Management
 Manage examination resources through CSV and Excel imports.
 """
 
+import importlib
 import streamlit as st
 import pandas as pd
 
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
 from database import repository as repo

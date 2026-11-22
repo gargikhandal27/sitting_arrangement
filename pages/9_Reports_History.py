@@ -1,4 +1,4 @@
-
+ 
 """
 Reports & History page (Phase 12)
 
@@ -7,11 +7,14 @@ generated files.
 """
 
 import re
+import importlib
 from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
 
+import ui.theme
+importlib.reload(ui.theme)
 from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
 from services.classroom_layout_service import get_layout_summary
