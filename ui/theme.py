@@ -203,44 +203,66 @@ def apply_theme() -> str:
     }}
 
     /* Sidebar Normal Buttons */
-    [data-testid="stSidebar"] .stButton > button,
-    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {{
+    [data-testid="stSidebar"] .stButton button,
+    [data-testid="stSidebar"] [data-testid="stButton"] button,
+    [data-testid="stSidebar"] [data-testid*="stBaseButton-secondary"],
+    [data-testid="stSidebar"] [data-testid*="baseButton-secondary"],
+    [data-testid="stSidebar"] button[kind="secondary"] {{
         background: var(--exam-sidebar-btn-bg) !important;
         background-color: var(--exam-sidebar-btn-bg) !important;
         color: var(--exam-sidebar-text) !important;
+        -webkit-text-fill-color: var(--exam-sidebar-text) !important;
         border: 1px solid var(--exam-sidebar-btn-border) !important;
         border-radius: 9px !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
         font-weight: 650 !important;
     }}
 
-    [data-testid="stSidebar"] .stButton > button *,
-    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] * {{
+    [data-testid="stSidebar"] .stButton button *,
+    [data-testid="stSidebar"] [data-testid="stButton"] button *,
+    [data-testid="stSidebar"] [data-testid*="stBaseButton-secondary"] *,
+    [data-testid="stSidebar"] [data-testid*="baseButton-secondary"] *,
+    [data-testid="stSidebar"] button[kind="secondary"] * {{
         color: var(--exam-sidebar-text) !important;
+        -webkit-text-fill-color: var(--exam-sidebar-text) !important;
     }}
 
-    [data-testid="stSidebar"] .stButton > button:hover {{
+    [data-testid="stSidebar"] .stButton button:hover,
+    [data-testid="stSidebar"] [data-testid="stButton"] button:hover,
+    [data-testid="stSidebar"] button[kind="secondary"]:hover {{
         border-color: var(--exam-primary) !important;
         color: var(--exam-primary) !important;
+        -webkit-text-fill-color: var(--exam-primary) !important;
     }}
 
-    [data-testid="stSidebar"] .stButton > button:hover * {{
+    [data-testid="stSidebar"] .stButton button:hover *,
+    [data-testid="stSidebar"] [data-testid="stButton"] button:hover *,
+    [data-testid="stSidebar"] button[kind="secondary"]:hover * {{
         color: var(--exam-primary) !important;
+        -webkit-text-fill-color: var(--exam-primary) !important;
     }}
 
     /* Sidebar Primary Button (e.g. 🚀 Auto-Plan Exam) */
-    [data-testid="stSidebar"] .stButton > button[kind="primary"],
-    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {{
+    [data-testid="stSidebar"] .stButton button[kind="primary"],
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"],
+    [data-testid="stSidebar"] [data-testid*="stBaseButton-primary"],
+    [data-testid="stSidebar"] [data-testid*="baseButton-primary"],
+    [data-testid="stSidebar"] button[kind="primary"] {{
         background: var(--exam-primary) !important;
         background-color: var(--exam-primary) !important;
         color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
         border: 1px solid var(--exam-primary) !important;
         font-weight: 700 !important;
     }}
 
-    [data-testid="stSidebar"] .stButton > button[kind="primary"] *,
-    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"] * {{
+    [data-testid="stSidebar"] .stButton button[kind="primary"] *,
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] *,
+    [data-testid="stSidebar"] [data-testid*="stBaseButton-primary"] *,
+    [data-testid="stSidebar"] [data-testid*="baseButton-primary"] *,
+    [data-testid="stSidebar"] button[kind="primary"] * {{
         color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
     }}
 
     /* Sidebar Navigation Links */
@@ -467,63 +489,113 @@ def apply_theme() -> str:
 
     /* Buttons (Everywhere in Main Application) */
     .stButton button,
-    button[data-testid="stBaseButton-secondary"],
+    [data-testid="stButton"] button,
+    button[data-testid*="stBaseButton"],
+    button[data-testid*="baseButton"],
     button[kind="secondary"],
+    button[kind="tertiary"],
     [data-testid="stDownloadButton"] button {{
         background: var(--exam-surface) !important;
         background-color: var(--exam-surface) !important;
         color: var(--exam-text) !important;
-        border: 1px solid var(--exam-border) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
+        border: 1.5px solid var(--exam-border) !important;
         border-radius: 9px !important;
         min-height: 2.55rem !important;
         font-weight: 650 !important;
     }}
 
     .stButton button *,
-    button[data-testid="stBaseButton-secondary"] *,
+    [data-testid="stButton"] button *,
+    button[data-testid*="stBaseButton"] *,
+    button[data-testid*="baseButton"] *,
     button[kind="secondary"] *,
+    button[kind="tertiary"] *,
     [data-testid="stDownloadButton"] button * {{
         color: var(--exam-text) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
     }}
 
     .stButton button:hover,
-    button[data-testid="stBaseButton-secondary"]:hover,
+    [data-testid="stButton"] button:hover,
+    button[data-testid*="stBaseButton"]:hover,
+    button[data-testid*="baseButton"]:hover,
     button[kind="secondary"]:hover,
     [data-testid="stDownloadButton"] button:hover {{
+        background: var(--exam-surface-alt) !important;
+        background-color: var(--exam-surface-alt) !important;
         border-color: var(--exam-primary) !important;
         color: var(--exam-primary) !important;
+        -webkit-text-fill-color: var(--exam-primary) !important;
     }}
 
     .stButton button:hover *,
-    button[data-testid="stBaseButton-secondary"]:hover *,
-    button[kind="secondary"]:hover * {{
+    [data-testid="stButton"] button:hover *,
+    button[data-testid*="stBaseButton"]:hover *,
+    button[data-testid*="baseButton"]:hover *,
+    button[kind="secondary"]:hover *,
+    [data-testid="stDownloadButton"] button:hover * {{
         color: var(--exam-primary) !important;
+        -webkit-text-fill-color: var(--exam-primary) !important;
     }}
 
     .stButton button[kind="primary"],
-    button[data-testid="stBaseButton-primary"],
+    [data-testid="stButton"] button[kind="primary"],
+    button[data-testid*="stBaseButton-primary"],
+    button[data-testid*="baseButton-primary"],
     button[kind="primary"] {{
         background: var(--exam-primary) !important;
         background-color: var(--exam-primary) !important;
         color: #FFFFFF !important;
-        border: 1px solid var(--exam-primary) !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+        border: 1.5px solid var(--exam-primary) !important;
         border-radius: 9px !important;
         font-weight: 700 !important;
     }}
 
     .stButton button[kind="primary"] *,
-    button[data-testid="stBaseButton-primary"] *,
+    [data-testid="stButton"] button[kind="primary"] *,
+    button[data-testid*="stBaseButton-primary"] *,
+    button[data-testid*="baseButton-primary"] *,
     button[kind="primary"] * {{
         color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
     }}
 
     .stButton button[kind="primary"]:hover,
-    button[data-testid="stBaseButton-primary"]:hover,
+    [data-testid="stButton"] button[kind="primary"]:hover,
+    button[data-testid*="stBaseButton-primary"]:hover,
+    button[data-testid*="baseButton-primary"]:hover,
     button[kind="primary"]:hover {{
         background: var(--exam-primary-hover) !important;
         background-color: var(--exam-primary-hover) !important;
         border-color: var(--exam-primary-hover) !important;
         color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+    }}
+
+    /* Disabled button state (preserves contrast, prevents washed out white-on-white) */
+    .stButton button:disabled,
+    [data-testid="stButton"] button:disabled,
+    button[data-testid*="stBaseButton"]:disabled,
+    button[data-testid*="baseButton"]:disabled,
+    button[disabled] {{
+        background: var(--exam-surface) !important;
+        background-color: var(--exam-surface) !important;
+        color: var(--exam-muted) !important;
+        -webkit-text-fill-color: var(--exam-muted) !important;
+        border-color: var(--exam-border) !important;
+        opacity: 0.65 !important;
+        cursor: not-allowed !important;
+    }}
+
+    .stButton button:disabled *,
+    [data-testid="stButton"] button:disabled *,
+    button[data-testid*="stBaseButton"]:disabled *,
+    button[data-testid*="baseButton"]:disabled *,
+    button[disabled] * {{
+        color: var(--exam-muted) !important;
+        -webkit-text-fill-color: var(--exam-muted) !important;
     }}
 
     /* Alerts (Info, Warning, Error, Success) */

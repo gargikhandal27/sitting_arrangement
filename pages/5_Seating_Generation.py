@@ -1,459 +1,502 @@
 """
-Seating Generation page (Phase 8 + AI Infeasibility Agent)
+Seating Generation Page
+Create conflict-free seating plans, test scenarios, and view room capacity guides.
 """
+from __future__ import annotations
 import importlib
-import streamlit as st
 import pandas as pd
+import streamlit as st
 
 import ui.theme
 importlib.reload(ui.theme)
 from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
-from services.allocation_service import run_seating_generation, load_students_for_solver, load_supervisors_for_solver
+from services.allocation_service import (
+    run_seating_generation,
+    load_students_for_solver,
+    load_supervisors_for_solver,
+)
 from services.classroom_layout_service import get_all_layouts
-from services.infeasibility_agent import diagnose_seating_feasibility
-
+from services.infeasibility_agent import (
+    diagnose_seating_feasibility,
+    apply_negotiation_proposal,
+    simulate_what_if_scenario,
+    get_classroom_checkerboard_analysis,
+)
 
 # --------------------------------------------------
 # PAGE SETUP
 # --------------------------------------------------
-
 apply_theme()
 init_db()
 
-st.title("🪑 Seating Generation")
-
+st.title("🪑 Seating Plan Generator")
 st.markdown(
-    "Generate an examination seating plan using the "
-    "OR-Tools CP-SAT optimization solver with **AI Infeasibility Diagnostics**."
+    "Create an examination seating plan with automatic conflict-free spacing between students, "
+    "test hypothetical scenarios, or check room capacity limits."
 )
 
-st.divider()
-
-
-# --------------------------------------------------
-# LOAD CONFIRMED NATURAL LANGUAGE SETTINGS
-# --------------------------------------------------
-
-nl_config = st.session_state.get("confirmed_nl_config", {})
-
-default_adj = nl_config.get(
-    "adjacency_mode",
-    "horizontal_vertical",
-)
-
-default_min = nl_config.get(
-    "minimize_classrooms",
-    True,
-)
-
-default_time = nl_config.get(
-    "solver_time_limit_seconds",
-    60,
-) or 60
-
-# Keep the number input within its permitted range.
-default_time = max(5, min(300, int(default_time)))
-
+st.write("")
 
 # --------------------------------------------------
-# SOLVER SETTINGS
+# MAIN WORKSPACE TABS
 # --------------------------------------------------
+tab_plan, tab_what_if, tab_capacity = st.tabs([
+    "🪑 Create Seating Plan",
+    "🔮 Test Scenarios ('What-If')",
+    "📐 Room Capacity Guide",
+])
 
-st.header("Solver Configuration")
+# ==================================================
+# TAB 1: CREATE SEATING PLAN
+# ==================================================
+with tab_plan:
+    # Load confirmed natural language settings
+    nl_config = st.session_state.get("confirmed_nl_config", {})
 
-if nl_config:
-    st.info(
-        "Settings confirmed on the Natural Language Requirements "
-        "page are being used as the default values below. "
-        "You can review or change them before generating."
-    )
-else:
-    st.caption(
-        "Configure the seating constraints before running the solver."
-    )
+    default_adj = nl_config.get("adjacency_mode", "horizontal_vertical")
+    default_min = nl_config.get("minimize_classrooms", True)
+    default_time = nl_config.get("solver_time_limit_seconds", 60) or 60
+    default_time = max(5, min(300, int(default_time)))
 
-with st.container(border=True):
+    st.subheader("Solver Configuration")
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        adjacency_options = [
-            "horizontal_vertical",
-            "horizontal",
-        ]
-
-        adjacency_mode = st.selectbox(
-            "Batch separation rule",
-            options=adjacency_options,
-            index=(
-                0
-                if default_adj == "horizontal_vertical"
-                else 1
-            ),
-            format_func=lambda value: {
-                "horizontal_vertical": (
-                    "Horizontal and Vertical"
-                ),
-                "horizontal": "Horizontal Only",
-            }[value],
-            help=(
-                "Controls which neighboring seats are checked "
-                "when separating students from the same batch."
-            ),
+    if nl_config:
+        st.info(
+            "Settings confirmed on the Natural Language Requirements "
+            "page are being used as default values below. "
+            "You can review or change them before generating."
         )
 
-    with col2:
-        time_limit = st.number_input(
-            "Solver time limit (seconds)",
-            min_value=5,
-            max_value=300,
-            value=default_time,
-            step=5,
-            help=(
-                "Maximum time allowed for the solver. "
-                "A longer limit may allow it to find a better solution."
-            ),
-        )
-
-    # Classroom selection filter
-    with get_db_session() as db:
-        all_db_layouts = get_all_layouts(db)
-
-    active_room_options = [
-        f"{lay.room_id} ({lay.usable_seats} seats)"
-        for lay in all_db_layouts if lay.is_available and lay.usable_seats > 0
-    ]
-    room_id_map = {
-        f"{lay.room_id} ({lay.usable_seats} seats)": lay.room_id
-        for lay in all_db_layouts if lay.is_available and lay.usable_seats > 0
+    # 1. Spacing Rule Selection
+    mode_options = ["horizontal_vertical", "horizontal"]
+    mode_labels = {
+        "horizontal_vertical": "Strict Spacing (Skip next seat & row)",
+        "horizontal": "Normal Spacing (Skip side-by-side seat only)",
     }
 
-    selected_room_labels = st.multiselect(
-        "Classrooms to include in this examination",
-        options=active_room_options,
-        default=active_room_options,
-        help="Select which classrooms to include. Deselect rooms to test capacity shortages or restrict exams to specific halls."
+    current_mode_index = (
+        mode_options.index(default_adj) if default_adj in mode_options else 0
     )
-    selected_room_ids = [room_id_map[lbl] for lbl in selected_room_labels]
 
-    minimize_classrooms = st.checkbox(
-        "Minimize the number of classrooms",
-        value=bool(default_min),
+    adjacency_mode = st.selectbox(
+        "Desk Spacing Rule",
+        options=mode_options,
+        index=current_mode_index,
+        format_func=lambda x: mode_labels.get(x, x),
         help=(
-            "Ask the solver to use as few classrooms as possible "
-            "while satisfying the seating constraints."
+            "Strict spacing keeps both side-by-side and front-to-back desks empty "
+            "between students of the same class. Normal spacing keeps only side-by-side desks empty."
         ),
     )
 
-
-# --------------------------------------------------
-# PRE-FLIGHT FEASIBILITY & GENERATE BUTTONS
-# --------------------------------------------------
-
-st.divider()
-
-st.header("Generate Seating Plan")
-
-st.markdown(
-    "You can run an **AI Pre-flight Feasibility Check** to mathematically test whether "
-    "a solution exists before launching the solver."
-)
-
-btn_col1, btn_col2 = st.columns([1, 1])
-
-with btn_col1:
-    run_preflight = st.button(
-        "🤖 AI Pre-flight Feasibility Check",
-        use_container_width=True,
-        help="Checks bipartite graph capacity and batch bounds without running the full solver.",
-    )
-
-with btn_col2:
-    run_solver = st.button(
-        "🚀 Generate Seating Arrangement",
-        type="primary",
-        use_container_width=True,
-    )
-
-# Pre-flight check execution
-if run_preflight:
+    # 2. Classroom Filter Selection
     with get_db_session() as db:
-        students = load_students_for_solver(db)
-        layouts = get_all_layouts(db)
-        if selected_room_ids is not None:
-            layouts = [lay for lay in layouts if lay.room_id in selected_room_ids]
-        supervisors = load_supervisors_for_solver(db)
+        all_rooms_list = get_all_layouts(db)
 
-        diag_report = diagnose_seating_feasibility(
-            students=students,
-            layouts=layouts,
-            adjacency_mode=adjacency_mode,
-            time_limit_seconds=int(time_limit),
-            supervisors=supervisors,
-        )
-        st.session_state["preflight_report"] = diag_report
-
-# Display Pre-flight Report if available
-if "preflight_report" in st.session_state:
-    diag = st.session_state["preflight_report"]
-    with st.container(border=True):
-        st.subheader("🔍 AI Pre-Flight Feasibility Report")
-        if diag.is_feasible:
-            st.success(f"**Feasible**: {diag.summary}")
-        else:
-            st.warning(f"**Potential Infeasibility**: {diag.summary}")
-
-        # Issues
-        for issue in diag.issues:
-            icon = "❌" if issue.severity == "error" else "⚠️"
-            st.markdown(f"- **{icon} {issue.title}**: {issue.description}")
-
-        # Remediations
-        if diag.remediations:
-            st.markdown("##### 💡 Suggested Actions:")
-            for r in diag.remediations:
-                st.markdown(f"• **{r.title}**: {r.description} *({r.impact})*")
-
-
-# Seating solver execution
-if run_solver:
-    try:
-        with st.spinner("Running OR-Tools CP-SAT solver. Please wait..."):
-            with get_db_session() as db:
-                result, layouts = run_seating_generation(
-                    db,
-                    adjacency_mode=adjacency_mode,
-                    minimize_classrooms=minimize_classrooms,
-                    time_limit_seconds=int(time_limit),
-                    selected_room_ids=selected_room_ids,
-                )
-
-        # Save result for display after reruns.
-        st.session_state["last_seating_result"] = result
-        st.session_state["last_seating_layouts"] = layouts
-        st.session_state["seating_generation_completed"] = True
-
-        # Run diagnosis if not optimal/feasible
-        if result.status not in ("OPTIMAL", "FEASIBLE"):
-            with get_db_session() as db:
-                students = load_students_for_solver(db)
-                supervisors = load_supervisors_for_solver(db)
-                diag = diagnose_seating_feasibility(
-                    students=students,
-                    layouts=layouts,
-                    adjacency_mode=adjacency_mode,
-                    time_limit_seconds=int(time_limit),
-                    solver_result=result,
-                    supervisors=supervisors,
-                )
-                st.session_state["infeasibility_diagnosis"] = diag
-        else:
-            st.session_state.pop("infeasibility_diagnosis", None)
-
-    except Exception as error:
-        st.error(
-            f"An error occurred while generating the seating plan: {error}"
-        )
-
-
-# --------------------------------------------------
-# DISPLAY SOLVER RESULT
-# --------------------------------------------------
-
-result = st.session_state.get("last_seating_result")
-
-if result is not None:
-
-    st.divider()
-    st.header("Solver Results")
-
-    status_colors = {
-        "OPTIMAL": "🟢",
-        "FEASIBLE": "🔵",
-        "INFEASIBLE": "🔴",
-        "UNKNOWN": "🟠",
-        "MODEL_INVALID": "🔴",
+    available_room_options = [lay.room_id for lay in all_rooms_list if lay.is_available and lay.usable_seats > 0]
+    room_labels_map = {
+        lay.room_id: f"{lay.room_name} ({lay.usable_seats} usable desks)"
+        for lay in all_rooms_list
     }
 
-    status_icon = status_colors.get(
-        result.status,
-        "⚪",
+    selected_room_ids = st.multiselect(
+        "Active Classrooms to Use (Optional Filter)",
+        options=available_room_options,
+        default=available_room_options,
+        format_func=lambda rid: room_labels_map.get(rid, rid),
+        help="Select which classrooms to include in this exam seating plan.",
     )
 
-    with st.container(border=True):
-
-        st.markdown("### Optimization Status")
-
-        st.markdown(
-            f"## {status_icon} {result.status}"
+    # Advanced Settings Expander
+    with st.expander("⚙️ Advanced Solver Settings", expanded=False):
+        time_limit = st.number_input(
+            "Time Limit (seconds)",
+            min_value=5,
+            max_value=300,
+            value=int(default_time),
+            step=5,
+            help="Maximum seconds the computer is allowed to search for an optimal solution.",
         )
 
-        st.write(result.message)
-
-        st.divider()
-
-        metric1, metric2, metric3 = st.columns(3)
-
-        with metric1:
-            st.metric(
-                "Students Assigned",
-                result.students_assigned,
-            )
-
-        with metric2:
-            st.metric(
-                "Classrooms Used",
-                result.rooms_used,
-            )
-
-        with metric3:
-            st.metric(
-                "Solver Runtime",
-                f"{result.runtime_seconds:.2f} sec",
-            )
-
-    # --------------------------------------------------
-    # AI INFEASIBILITY DIAGNOSTICS & REMEDIATION PANEL
-    # --------------------------------------------------
-    diag = st.session_state.get("infeasibility_diagnosis")
-    if result.status not in ("OPTIMAL", "FEASIBLE") and diag is not None:
-
-        st.divider()
-        st.subheader("🤖 AI Infeasibility Diagnostic & Negotiation Agent")
-
-        st.error(
-            f"**Root Cause Diagnosis**: {diag.summary}"
+        minimize_classrooms = st.checkbox(
+            "Minimize the number of classrooms",
+            value=bool(default_min),
+            help="Ask the solver to use as few classrooms as possible while satisfying all rules.",
         )
 
-        # Issues details
-        with st.expander("🔍 Detailed Root Cause Breakdown", expanded=True):
+    # Buttons: Quick Space Check & Create Seating Plan
+    st.divider()
+    st.subheader("Run Seating Generator")
+
+    btn_col1, btn_col2 = st.columns([1, 1])
+
+    with btn_col1:
+        run_preflight = st.button(
+            "🤖 Quick Check: Will Students Fit?",
+            use_container_width=True,
+            help="Quickly checks if classrooms have enough desks before planning.",
+        )
+
+    with btn_col2:
+        run_solver = st.button(
+            "🚀 Create Seating Plan",
+            type="primary",
+            use_container_width=True,
+        )
+
+    # Pre-flight check execution
+    if run_preflight:
+        with get_db_session() as db:
+            students_list = load_students_for_solver(db)
+            layouts_list = get_all_layouts(db)
+            if selected_room_ids is not None:
+                layouts_list = [lay for lay in layouts_list if lay.room_id in selected_room_ids]
+            supervisors_list = load_supervisors_for_solver(db)
+
+            diag_report = diagnose_seating_feasibility(
+                students=students_list,
+                layouts=layouts_list,
+                adjacency_mode=adjacency_mode,
+                time_limit_seconds=int(time_limit),
+                supervisors=supervisors_list,
+            )
+            st.session_state["preflight_report"] = diag_report
+
+    # Display Pre-flight Report if available
+    if "preflight_report" in st.session_state:
+        diag = st.session_state["preflight_report"]
+        with st.container(border=True):
+            st.subheader("🔍 Space Check Result")
+            if diag.is_feasible:
+                st.success(f"**All Good**: {diag.summary}")
+            else:
+                st.warning(f"**Attention Needed**: {diag.summary}")
+
+            # Issues
             for issue in diag.issues:
-                st.markdown(f"#### ⚠️ {issue.title}")
-                st.write(issue.description)
+                icon = "❌" if issue.severity == "error" else "⚠️"
+                st.markdown(f"- **{icon} {issue.title}**: {issue.description}")
 
-        # Batch density breakdown table if present
-        if diag.batch_metrics:
-            st.markdown("#### 📊 Batch Independent Capacity Breakdown")
-            st.caption(
-                "Shows the maximum number of seats a single batch can legally occupy across all active classrooms "
-                "under the current separation rules vs actual student headcount."
-            )
-            batch_df = pd.DataFrame([
-                {
-                    "Batch": b.batch,
-                    "Students": b.student_count,
-                    "Max Safe Capacity": b.max_independent_capacity,
-                    "Capacity Utilization": f"{b.utilization_pct}%",
-                    "Status": "❌ Bottleneck" if b.is_bottleneck else "✅ Fits",
-                }
-                for b in diag.batch_metrics
-            ])
-            st.dataframe(batch_df, use_container_width=True, hide_index=True)
+            # 1-Click Fixes
+            if diag.remediations:
+                st.markdown("##### 💡 Recommended Quick Fixes:")
+                for idx, r in enumerate(diag.remediations):
+                    with st.container(border=True):
+                        p_col1, p_col2 = st.columns([3, 1])
+                        with p_col1:
+                            st.markdown(f"**{r.title}** · *{r.confidence_score}% Success Chance*")
+                            st.write(r.description)
+                            if r.trade_off:
+                                st.caption(f"**What to keep in mind:** {r.trade_off}")
+                            st.caption(f"**Benefit:** {r.impact}")
+                        with p_col2:
+                            if st.button("⚡ Apply Fix & Re-check", key=f"preflight_apply_{idx}", type="primary", use_container_width=True):
+                                with get_db_session() as db:
+                                    success, msg, ctx = apply_negotiation_proposal(r.id, db)
+                                    if success:
+                                        if "adjacency_mode" in ctx:
+                                            st.session_state["confirmed_nl_config"] = st.session_state.get("confirmed_nl_config", {})
+                                            st.session_state["confirmed_nl_config"]["adjacency_mode"] = ctx["adjacency_mode"]
+                                        st.success(msg)
+                                        st.session_state.pop("preflight_report", None)
+                                        st.rerun()
+                                    else:
+                                        st.error(msg)
 
-        # Interactive 1-Click Remediations
-        if diag.remediations:
-            st.subheader("💡 1-Click AI Remediation Proposals")
-            st.markdown(
-                "The AI Diagnostic Agent proposes the following automated trade-offs to achieve a feasible solution:"
-            )
+    # Seating solver execution
+    if run_solver:
+        try:
+            with st.spinner("Creating exam seating plan. Please wait..."):
+                with get_db_session() as db:
+                    result, layouts = run_seating_generation(
+                        db,
+                        adjacency_mode=adjacency_mode,
+                        minimize_classrooms=minimize_classrooms,
+                        time_limit_seconds=int(time_limit),
+                        selected_room_ids=selected_room_ids,
+                    )
 
-            for i, rem in enumerate(diag.remediations):
-                with st.container(border=True):
-                    rem_col1, rem_col2 = st.columns([3, 1])
-                    with rem_col1:
-                        st.markdown(f"**{rem.title}**")
-                        st.caption(rem.description)
-                        st.info(f"**Expected Impact**: {rem.impact}")
+            st.session_state["last_seating_result"] = result
+            st.session_state["last_seating_layouts"] = layouts
+            st.session_state["seating_generation_completed"] = True
 
-                    with rem_col2:
-                        if rem.action_type == "relax_adjacency":
-                            if st.button("⚡ Apply & Re-solve", key=f"rem_btn_{i}", type="primary"):
-                                st.session_state["confirmed_nl_config"] = st.session_state.get("confirmed_nl_config", {})
-                                st.session_state["confirmed_nl_config"]["adjacency_mode"] = rem.payload.get("target_adjacency", "horizontal")
-                                st.rerun()
+            # Run diagnosis if not optimal/feasible
+            if result.status not in ("OPTIMAL", "FEASIBLE"):
+                with get_db_session() as db:
+                    students_list = load_students_for_solver(db)
+                    supervisors_list = load_supervisors_for_solver(db)
+                    diag = diagnose_seating_feasibility(
+                        students=students_list,
+                        layouts=layouts,
+                        adjacency_mode=adjacency_mode,
+                        time_limit_seconds=int(time_limit),
+                        solver_result=result,
+                        supervisors=supervisors_list,
+                    )
+                    st.session_state["infeasibility_diagnosis"] = diag
 
-                        elif rem.action_type == "increase_time":
-                            if st.button("⏱️ Increase & Re-solve", key=f"rem_btn_{i}", type="primary"):
-                                st.session_state["confirmed_nl_config"] = st.session_state.get("confirmed_nl_config", {})
-                                st.session_state["confirmed_nl_config"]["solver_time_limit_seconds"] = rem.payload.get("time_limit", 120)
-                                st.rerun()
+        except Exception as e:
+            st.error(f"Seating generation failed: {e}")
 
-                        elif rem.action_type == "activate_room":
-                            st.page_link(
-                                "pages/3_Classroom_Layout_Management.py",
-                                label="Go to Classrooms",
-                                icon="🏫",
-                            )
-
-    # --------------------------------------------------
-    # ASSIGNMENT TABLE
-    # --------------------------------------------------
-
-    if result.assignments:
-
-        st.subheader("Generated Seat Assignments")
-
-        df = pd.DataFrame(result.assignments)
-
-        st.caption(
-            f"Total assignment records: {len(df)}. "
-            "The table below displays the first 50 records."
-        )
-
-        st.dataframe(
-            df.head(50),
-            use_container_width=True,
-            hide_index=True,
-        )
-
-        # --------------------------------------------------
-        # DOWNLOAD CSV
-        # --------------------------------------------------
+    # Display results if a run has occurred
+    if st.session_state.get("seating_generation_completed", False):
+        result = st.session_state.get("last_seating_result")
+        layouts = st.session_state.get("last_seating_layouts", [])
 
         st.divider()
-        st.subheader("Export Seating Assignments")
+        st.subheader("Seating Results")
 
-        csv_data = df.to_csv(
-            index=False
-        ).encode("utf-8")
+        if result.status == "OPTIMAL":
+            st.success(
+                f"🎉 **Optimal seating plan generated!** All students seated "
+                f"in {result.runtime_seconds:.2f} seconds."
+            )
+        elif result.status == "FEASIBLE":
+            st.info(
+                f"✅ **Valid seating plan generated!** All students seated "
+                f"in {result.runtime_seconds:.2f} seconds."
+            )
+        else:
+            st.error(
+                f"⚠️ Could not generate a plan. Solver returned: **{result.status}**. "
+                f"{result.message}"
+            )
 
-        st.download_button(
-            label="⬇️ Download Full Assignment CSV",
-            data=csv_data,
-            file_name="seating_assignments.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
+        # Result KPI Metrics
+        r1, r2, r3, r4 = st.columns(4)
+        with r1:
+            st.metric("Total Students", result.total_students)
+        with r2:
+            st.metric("Students Seated", result.seated_students)
+        with r3:
+            st.metric("Classrooms Used", result.classrooms_used)
+        with r4:
+            st.metric("Calculation Time", f"{result.runtime_seconds:.2f}s")
+
+        # Problem solver & 1-click fixes if not feasible
+        diag = st.session_state.get("infeasibility_diagnosis")
+        if result.status not in ("OPTIMAL", "FEASIBLE") and diag is not None:
+            st.divider()
+            st.subheader("🤖 Seating Problem Solver & Quick Fixes")
+            st.error(f"**What Happened**: {diag.summary}")
+
+            with st.expander("🔍 Details on What Caused the Problem", expanded=True):
+                for issue in diag.issues:
+                    st.markdown(f"#### ⚠️ {issue.title}")
+                    st.write(issue.description)
+
+            if diag.batch_metrics:
+                st.markdown("#### 📊 Student Count by Branch vs Safe Room Space")
+                batch_df = pd.DataFrame([
+                    {
+                        "Branch": b.batch,
+                        "Students": b.student_count,
+                        "Safe Branch Limit": b.max_independent_capacity,
+                        "Space Used": f"{b.utilization_pct}%",
+                        "Status": "❌ Over Limit" if b.is_bottleneck else "✅ Fits Safely",
+                    }
+                    for b in diag.batch_metrics
+                ])
+                st.dataframe(batch_df, use_container_width=True, hide_index=True)
+
+            if diag.remediations:
+                st.subheader("💡 1-Click Quick Fixes")
+                st.markdown("Pick any solution below to easily fix the seating issue and create the plan:")
+
+                for i, rem in enumerate(diag.remediations):
+                    with st.container(border=True):
+                        rem_col1, rem_col2 = st.columns([3, 1])
+                        with rem_col1:
+                            st.markdown(f"**{rem.title}** · *{rem.confidence_score}% Success Chance*")
+                            st.caption(rem.description)
+                            if rem.trade_off:
+                                st.caption(f"**What to keep in mind:** *{rem.trade_off}*")
+                            st.info(f"**Benefit:** {rem.impact}")
+
+                        with rem_col2:
+                            if rem.action_type == "relax_adjacency":
+                                if st.button("⚡ Apply & Re-solve", key=f"rem_btn_{i}", type="primary"):
+                                    st.session_state["confirmed_nl_config"] = st.session_state.get("confirmed_nl_config", {})
+                                    st.session_state["confirmed_nl_config"]["adjacency_mode"] = rem.payload.get("target_adjacency", "horizontal")
+                                    st.rerun()
+
+                            elif rem.action_type == "increase_time":
+                                if st.button("⏱️ Increase & Re-solve", key=f"rem_btn_{i}", type="primary"):
+                                    st.session_state["confirmed_nl_config"] = st.session_state.get("confirmed_nl_config", {})
+                                    st.session_state["confirmed_nl_config"]["solver_time_limit_seconds"] = rem.payload.get("time_limit", 120)
+                                    st.rerun()
+
+                            elif rem.action_type == "activate_room":
+                                if st.button("⚡ Activate & Re-solve", key=f"rem_btn_{i}", type="primary"):
+                                    with get_db_session() as db:
+                                        success, msg, ctx = apply_negotiation_proposal(rem.id, db)
+                                        if success:
+                                            st.success(msg)
+                                            st.rerun()
+                                        else:
+                                            st.error(msg)
+
+        # Assignment table and CSV export if assignments exist
+        if result.assignments:
+            st.divider()
+            st.subheader("Generated Seat Assignments")
+
+            df = pd.DataFrame(result.assignments)
+            st.caption(f"Total assignment records: {len(df)}. Showing first 50 records below:")
+            st.dataframe(df.head(50), use_container_width=True, hide_index=True)
+
+            csv_data = df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="⬇️ Download Full Assignment CSV",
+                data=csv_data,
+                file_name="seating_assignments.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
 
     else:
-        st.warning(
-            "No assignments were produced. "
-            "Review the AI Infeasibility Diagnostic panel above for concrete remedies."
+        with st.container(border=True):
+            st.info("No seating plan has been generated in this session yet.")
+            st.markdown(
+                "1. Review the solver settings above.\n"
+                "2. Click **'🤖 Quick Check: Will Students Fit?'** to test desk space.\n"
+                "3. Click **'🚀 Create Seating Plan'** to generate your plan.\n"
+                "4. Download your CSV assignments or explore the other tabs above."
+            )
+
+
+# ==================================================
+# TAB 2: TEST SCENARIOS ('WHAT-IF')
+# ==================================================
+with tab_what_if:
+    st.subheader("🔮 Test More Students or Closed Classrooms")
+    st.markdown(
+        "Try out different situations before exam day. "
+        "See what happens if more students register or if any classroom is closed for maintenance—without changing any real data."
+    )
+
+    with get_db_session() as db:
+        sim_students_base = load_students_for_solver(db)
+        sim_all_layouts = get_all_layouts(db)
+
+    total_base_students = len(sim_students_base)
+
+    sim_col1, sim_col2 = st.columns([1, 1])
+
+    with sim_col1:
+        mult = st.slider(
+            "Change Student Numbers",
+            min_value=0.5,
+            max_value=3.0,
+            value=1.0,
+            step=0.1,
+            format="%.1fx",
+            help="Test with fewer or more students.",
+            key="sim_slider_tab2",
+        )
+        sim_students_est = max(1, int(total_base_students * mult))
+        st.caption(f"Testing with **{sim_students_est} students** (current: {total_base_students})")
+
+    with sim_col2:
+        sim_mode = st.selectbox(
+            "Spacing Rule to Test",
+            options=["horizontal_vertical", "horizontal"],
+            format_func=lambda x: "Strict Spacing (Skip next seat & row)" if x == "horizontal_vertical" else "Normal Spacing (Skip side-by-side seat only)",
+            key="sim_mode_tab2",
         )
 
-else:
+    all_room_ids = [lay.room_id for lay in sim_all_layouts]
+    disabled_rooms = st.multiselect(
+        "Simulate Classroom Closures (Repairs / Painting / Closed)",
+        options=all_room_ids,
+        default=[],
+        help="Pick any classrooms you want to pretend are closed.",
+        key="sim_disabled_tab2",
+    )
 
-    # Initial state before the first generation.
-    with st.container(border=True):
+    sim_result = simulate_what_if_scenario(
+        students=sim_students_base,
+        layouts=sim_all_layouts,
+        student_multiplier=mult,
+        disabled_room_ids=disabled_rooms,
+        adjacency_mode=sim_mode,
+    )
+
+    st.markdown("---")
+    st.subheader("Test Results")
+
+    sim_m1, sim_m2, sim_m3, sim_m4 = st.columns(4)
+    with sim_m1:
+        st.metric("Test Students", sim_result["sim_students_count"])
+    with sim_m2:
+        st.metric("Available Desks", sim_result["sim_seats_count"])
+    with sim_m3:
+        margin = sim_result["seat_surplus"] if sim_result["seat_surplus"] > 0 else -sim_result["seat_deficit"]
+        st.metric(
+            "Extra or Missing Desks",
+            f"{abs(margin)} desks",
+            delta="Extra desks" if margin >= 0 else "Need more desks",
+            delta_color="normal" if margin >= 0 else "inverse",
+        )
+    with sim_m4:
+        st.metric(
+            "Will They Fit?",
+            "✅ All Fit" if sim_result["is_feasible"] else "❌ Need More Space",
+        )
+
+    util_ratio = min(1.0, sim_result["sim_students_count"] / max(1, sim_result["sim_seats_count"]))
+    st.progress(
+        util_ratio,
+        text=f"Desk Usage: {round(util_ratio * 100, 1)}% ({sim_result['sim_students_count']} / {sim_result['sim_seats_count']} desks used)",
+    )
+
+    if sim_result["bottlenecks"]:
+        st.warning("⚠️ **These branches will need more space:**")
+        for b in sim_result["bottlenecks"]:
+            st.markdown(
+                f"- Branch **`{b['batch']}`**: {b['count']} students is more than the {b['max_cap']} safe desks available (need {b['deficit']} more desks)."
+            )
+
+
+# ==================================================
+# TAB 3: ROOM CAPACITY GUIDE
+# ==================================================
+with tab_capacity:
+    st.subheader("📐 Classroom Desk Capacity Guide")
+    st.markdown(
+        "To prevent copying during exams, students in the same class cannot sit right next to each other. "
+        "Because of this empty desk rule, each room safely holds about half its total desks for students from the same branch."
+    )
+
+    with get_db_session() as db:
+        cap_layouts = get_all_layouts(db)
+
+    analysis_data = get_classroom_checkerboard_analysis(cap_layouts)
+    if analysis_data:
+        geo_df = pd.DataFrame([
+            {
+                "Classroom": item["room_id"],
+                "Room Name": item["room_name"],
+                "Desk Grid": f"{item['rows']} rows × {item['columns']} cols",
+                "Total Desks": item["total_seats"],
+                "Usable Desks": item["usable_seats"],
+                "Max per Branch (Strict Spacing)": item["max_single_batch_hv"],
+                "Max per Branch (Normal Spacing)": item["max_single_batch_h"],
+                "Status": "🟢 Open" if item["is_available"] else "⚪ Closed",
+            }
+            for item in analysis_data
+        ])
+        st.dataframe(geo_df, use_container_width=True, hide_index=True)
+
         st.info(
-            "No seating plan has been generated in this session yet."
-        )
-
-        st.markdown(
-            "1. Review the solver configuration.\n"
-            "2. Run the **AI Pre-flight Feasibility Check** to detect any capacity or batch bottlenecks.\n"
-            "3. Click **Generate Seating Arrangement**.\n"
-            "4. Review the solver results or AI Diagnostic suggestions."
+            "💡 **How to read this table**: If a room has 30 usable desks, at most 15 students from the same branch "
+            "can sit in that room under strict spacing so that no two classmates sit next to or directly behind each other."
         )
 
 
 # --------------------------------------------------
 # FOOTER
 # --------------------------------------------------
-
 st.divider()
-
-st.caption(
-    "EXAMFLOW · Seating Generation · OR-Tools CP-SAT Solver with AI Infeasibility Diagnostics"
-)
+st.caption("EXAMFLOW · Seating Generation · Fast Conflict-Free Optimization")

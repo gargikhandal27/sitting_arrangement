@@ -12,6 +12,7 @@ importlib.reload(ui.theme)
 from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
 from database import repository as repo
+from services.copilot_agent import handle_copilot_query, get_system_overview
 
 
 # Apply shared application theme
@@ -210,17 +211,84 @@ with action4:
             icon="🪑"
         )
 
+# --------------------------------------------------
+# EXAMFLOW AI ASSISTANT (INTEGRATED)
+# --------------------------------------------------
+
+st.divider()
+
+st.subheader("🤖 ExamFlow AI Assistant")
+st.caption(
+    "Ask questions in plain English or click an action below to manage your examination logistics instantly."
+)
+
+if "copilot_messages" not in st.session_state:
+    st.session_state["copilot_messages"] = [
+        {
+            "role": "assistant",
+            "content": (
+                "👋 Hello! I am your **ExamFlow Helper**.\n\n"
+                "I can check if all students have desks, fix seating problems, or automatically create your complete exam seating plan.\n\n"
+                "Ask a question below or choose an action!"
+            ),
+        }
+    ]
+
+# Quick action buttons
+q_col1, q_col2, q_col3, q_col4 = st.columns(4)
+dashboard_prompt = None
+
+with q_col1:
+    if st.button("📊 Overview", key="dash_overview", use_container_width=True):
+        dashboard_prompt = "Show system overview"
+
+with q_col2:
+    if st.button("🔍 Check Space", key="dash_space", use_container_width=True):
+        dashboard_prompt = "Run pre-flight feasibility check"
+
+with q_col3:
+    if st.button("🚀 Auto-Plan Exam", key="dash_autoplan", type="primary", use_container_width=True):
+        dashboard_prompt = "Auto-plan exam with default settings"
+
+with q_col4:
+    if st.button("🗑️ Reset Chat", key="dash_reset", use_container_width=True):
+        st.session_state["copilot_messages"] = [
+            {
+                "role": "assistant",
+                "content": (
+                    "👋 Conversation reset! Ask a question or click an action above to get started."
+                ),
+            }
+        ]
+        st.rerun()
+
+# Chat messages display container
 with st.container(border=True):
-    st.markdown("### 🤖 Autonomous AI Copilot & Diagnostics")
-    st.write(
-        "Chat with the AI Copilot to check seating feasibility, diagnose capacity bottlenecks, "
-        "or orchestrate the entire examination allocation pipeline in one step."
-    )
-    st.page_link(
-        "pages/11_AI_Copilot.py",
-        label="Launch AI Copilot",
-        icon="🤖"
-    )
+    chat_container = st.container(height=360)
+    with chat_container:
+        for msg in st.session_state["copilot_messages"]:
+            avatar = "🤖" if msg["role"] == "assistant" else "👤"
+            with st.chat_message(msg["role"], avatar=avatar):
+                st.markdown(msg["content"])
+
+# Chat input
+user_input = st.chat_input("Ask ExamFlow Assistant (e.g. 'Can we seat all students?', 'Auto-plan exam')...")
+active_query = dashboard_prompt or user_input
+
+if active_query:
+    st.session_state["copilot_messages"].append({"role": "user", "content": active_query})
+
+    with get_db_session() as db:
+        resp = handle_copilot_query(active_query, db)
+
+    st.session_state["copilot_messages"].append({"role": "assistant", "content": resp.message})
+
+    if resp.status == "success":
+        st.toast("✅ Action completed successfully!", icon="🎉")
+    elif resp.status == "error":
+        st.toast("⚠️ Notice: Could not complete action.", icon="⚠️")
+
+    st.rerun()
 
 
 

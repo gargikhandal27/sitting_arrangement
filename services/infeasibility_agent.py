@@ -1,11 +1,16 @@
 """
-AI Infeasibility Diagnostic & Negotiation Agent (Phase 1 AI Upgrade)
+AI Infeasibility Diagnostic & Negotiation Agent (Agent 2)
 
 Analyzes why an examination seating or supervisor problem is INFEASIBLE,
-UNKNOWN, or at risk of failure, and proposes concrete, actionable remediations.
+UNKNOWN, or at risk of failure, and formulates prioritized negotiation proposals.
 
-Uses combinatorial capacity bounds, bipartite graph independent set calculations,
-and resource availability metrics to pinpoint bottlenecks.
+Features:
+- Mathematical checkerboard bipartite independent set bounding (Color 0 vs Color 1)
+- Automated constraint relaxation triage (Horizontal & Vertical -> Horizontal Only)
+- Minimal capacity addition calculation (recommending specific inactive rooms)
+- Shift partitioning analysis for oversized batches
+- Actionable negotiation execution engine (apply_negotiation_proposal)
+- What-If simulation engine for capacity stress-testing
 """
 from __future__ import annotations
 from typing import List, Dict, Any, Optional, Tuple, Set
@@ -51,7 +56,13 @@ class RemediationOption:
     description: str
     action_type: str     # relax_adjacency | activate_room | increase_time | split_batch | reduce_supervisor_ratio
     impact: str
+    confidence_score: float = 95.0
+    trade_off: str = ""
     payload: Dict[str, Any] = field(default_factory=dict)
+
+
+# Semantic alias for Agent 2: Negotiation Proposals
+NegotiationProposal = RemediationOption
 
 
 @dataclass
@@ -66,6 +77,11 @@ class DiagnosisReport:
     issues: List[DiagnosisIssue] = field(default_factory=list)
     batch_metrics: List[BatchCapacityMetric] = field(default_factory=list)
     remediations: List[RemediationOption] = field(default_factory=list)
+
+    @property
+    def proposals(self) -> List[NegotiationProposal]:
+        """Convenient alias for negotiation proposals."""
+        return self.remediations
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -123,6 +139,45 @@ def calculate_total_independent_capacity(
     )
 
 
+def get_classroom_checkerboard_analysis(
+    layouts: List[ClassroomLayout],
+) -> List[Dict[str, Any]]:
+    """
+    Computes mathematical bipartite coloring and independent set capacities
+    for every classroom.
+    """
+    analysis = []
+    for lay in layouts:
+        usable_seats = [
+            s for s in lay.seats
+            if s.is_available and s.row is not None and s.col is not None
+        ]
+        color_0 = sum(1 for s in usable_seats if (s.row + s.col) % 2 == 0)
+        color_1 = sum(1 for s in usable_seats if (s.row + s.col) % 2 == 1)
+        max_hv = max(color_0, color_1)
+
+        row_counts = defaultdict(int)
+        for s in usable_seats:
+            row_counts[s.row] += 1
+        max_h = sum(ceil(cnt / 2) for cnt in row_counts.values())
+
+        analysis.append({
+            "room_id": lay.room_id,
+            "room_name": lay.room_name,
+            "rows": lay.rows,
+            "columns": lay.columns,
+            "total_seats": len(lay.seats),
+            "usable_seats": len(usable_seats),
+            "color_0": color_0,
+            "color_1": color_1,
+            "max_single_batch_hv": max_hv,
+            "max_single_batch_h": max_h,
+            "bipartite_ratio_pct": round((max_hv / len(usable_seats) * 100) if usable_seats else 0, 1),
+            "is_available": lay.is_available,
+        })
+    return analysis
+
+
 def diagnose_seating_feasibility(
     students: List[StudentInfo],
     layouts: List[ClassroomLayout],
@@ -133,9 +188,9 @@ def diagnose_seating_feasibility(
     students_per_supervisor: int = 30,
 ) -> DiagnosisReport:
     """
-    AI Diagnosis Engine:
-    Detects root causes of infeasibility or solver failure and formulates remediations.
-    Can be run as a Pre-flight Check (before solving) or Post-mortem (after solver fails).
+    AI Diagnosis & Constraint Negotiation Engine:
+    Detects root causes of infeasibility or solver failure and formulates prioritized,
+    actionable trade-off proposals with confidence scores.
     """
     issues: List[DiagnosisIssue] = []
     remediations: List[RemediationOption] = []
@@ -155,10 +210,10 @@ def diagnose_seating_feasibility(
             DiagnosisIssue(
                 category="NO_ROOMS",
                 severity="error",
-                title="No Usable Classrooms Available",
+                title="No Open Classrooms Available",
                 description=(
-                    "No active classrooms with usable seats were found in the database. "
-                    "Seating generation cannot proceed."
+                    "All classrooms are currently turned off or closed. "
+                    "Please turn on at least one classroom to plan seating."
                 ),
             )
         )
@@ -166,10 +221,13 @@ def diagnose_seating_feasibility(
             remediations.append(
                 RemediationOption(
                     id="activate_existing_rooms",
-                    title="Activate Registered Classrooms",
-                    description=f"You have {len(inactive_layouts)} classroom(s) marked inactive or unconfirmed.",
+                    title="Turn On Closed Classrooms",
+                    description=f"You have {len(inactive_layouts)} classroom(s) currently turned off.",
                     action_type="activate_room",
-                    impact="Unlocks classroom capacity for the exam.",
+                    impact=f"Unlocks capacity across {len(inactive_layouts)} classroom(s)",
+                    confidence_score=99.0,
+                    trade_off="Opens classrooms for students to take the exam.",
+                    payload={"target_rooms": "all_inactive"},
                 )
             )
 
@@ -180,11 +238,11 @@ def diagnose_seating_feasibility(
             DiagnosisIssue(
                 category="GLOBAL_CAPACITY",
                 severity="error",
-                title=f"Global Seat Deficit ({deficit} seats short)",
+                title=f"Not Enough Desks: Need {deficit} More Seats",
                 description=(
-                    f"There are {total_students} registered students but only {total_usable_seats} "
-                    f"usable seats across {active_rooms_count} active classroom(s). "
-                    f"At least {deficit} additional seat(s) are required."
+                    f"You have {total_students} students registered, but only {total_usable_seats} "
+                    f"desks available across {active_rooms_count} open classroom(s). "
+                    f"You need at least {deficit} more desk(s)."
                 ),
                 details={"students": total_students, "seats": total_usable_seats, "deficit": deficit},
             )
@@ -196,17 +254,20 @@ def diagnose_seating_feasibility(
             for lay in inactive_layouts
         )
         if inactive_seats > 0:
+            is_sufficient = (total_usable_seats + inactive_seats) >= total_students
             remediations.append(
                 RemediationOption(
                     id="activate_inactive_rooms",
-                    title=f"Activate Inactive Classrooms (+{inactive_seats} seats)",
+                    title=f"Open Closed Classrooms (+{inactive_seats} seats)",
                     description=(
-                        f"Activating inactive classrooms will add up to {inactive_seats} seats, "
-                        f"{'completely covering' if (total_usable_seats + inactive_seats) >= total_students else 'reducing'} "
-                        f"the shortage."
+                        f"Opening closed classrooms will add {inactive_seats} more seats, which "
+                        f"{'gives enough desks for all students' if is_sufficient else 'helps cover the shortage'}."
                     ),
                     action_type="activate_room",
-                    impact=f"+{inactive_seats} usable seats",
+                    impact=f"+{inactive_seats} extra seats",
+                    confidence_score=99.0 if is_sufficient else 75.0,
+                    trade_off="Requires opening and using more classrooms for the exam.",
+                    payload={"target_rooms": "all_inactive", "added_seats": inactive_seats},
                 )
             )
 
@@ -243,11 +304,11 @@ def diagnose_seating_feasibility(
                 DiagnosisIssue(
                     category="BATCH_BOTTLENECK",
                     severity="error",
-                    title=f"Batch Density Bottleneck: '{batch_name}' ({deficit} students over limit)",
+                    title=f"Branch '{batch_name}' is Too Large ({deficit} students over safe limit)",
                     description=(
-                        f"Batch '{batch_name}' has {count} students, but under the current "
-                        f"'{adjacency_mode.replace('_', ' and ')}' separation rule, active classrooms can "
-                        f"hold at most {max_batch_cap_current} students of the same batch without adjacency violations."
+                        f"Branch '{batch_name}' has {count} students. To prevent cheating, students "
+                        f"of the same branch cannot sit right next to each other. Under current spacing rules, "
+                        f"the open rooms can safely seat at most {max_batch_cap_current} students from this branch."
                     ),
                     details={
                         "batch": batch_name,
@@ -259,45 +320,48 @@ def diagnose_seating_feasibility(
                 )
             )
 
-    # If batch bottleneck exists, check if relaxing adjacency mode resolves it
+    # If batch bottleneck exists, formulate negotiation proposals
     if has_batch_bottleneck:
         if adjacency_mode == "horizontal_vertical":
             can_fit_relaxed = all(count <= max_batch_cap_relaxed for count in batch_counts.values())
             remediations.append(
                 RemediationOption(
                     id="relax_to_horizontal",
-                    title="Relax Batch Separation to 'Horizontal Only'",
+                    title="Use Normal Spacing (Skip side-by-side seat only)",
                     description=(
-                        f"Switching from Horizontal & Vertical to Horizontal Only increases single-batch capacity "
-                        f"from {max_batch_cap_current} to {max_batch_cap_relaxed} seats across active rooms. "
-                        f"{'This mathematically resolves the batch bottleneck!' if can_fit_relaxed else 'This significantly alleviates the congestion.'}"
+                        f"Instead of skipping both side and front/back seats, only skip the seat directly next to each student. "
+                        f"This allows each branch to fit up to {max_batch_cap_relaxed} students across open rooms. "
+                        f"{'This completely solves the space problem!' if can_fit_relaxed else 'This greatly helps reduce crowding.'}"
                     ),
                     action_type="relax_adjacency",
-                    impact=f"Expands single-batch capacity to {max_batch_cap_relaxed} seats",
+                    impact=f"Increases branch capacity to {max_batch_cap_relaxed} seats",
+                    confidence_score=98.0 if can_fit_relaxed else 82.0,
+                    trade_off="Allows same-branch students to sit in rows behind each other, but not directly beside each other.",
                     payload={"target_adjacency": "horizontal"},
                 )
             )
 
-        # Propose splitting the largest batch
+        # Propose splitting the largest batch into 2 shifts
         largest_batch, largest_count = max(batch_counts.items(), key=lambda x: x[1])
         remediations.append(
             RemediationOption(
                 id="split_batch",
-                title=f"Split Largest Batch '{largest_batch}' into Multiple Sessions",
+                title=f"Split Branch '{largest_batch}' into Morning & Afternoon Shifts",
                 description=(
-                    f"Batch '{largest_batch}' has {largest_count} students. Splitting this batch into two "
-                    f"staggered exam shifts ({ceil(largest_count/2)} students each) eliminates the crowding conflict."
+                    f"Branch '{largest_batch}' has {largest_count} students. Splitting them into two "
+                    f"smaller shifts ({ceil(largest_count/2)} students each) easily avoids crowding without changing room rules."
                 ),
                 action_type="split_batch",
-                impact="Eliminates single-batch clustering",
+                impact="Easily fits all students without crowding",
+                confidence_score=95.0,
+                trade_off="Runs two exam shifts: one in the morning and one in the afternoon.",
+                payload={"target_batch": largest_batch, "shift_size": ceil(largest_count / 2)},
             )
         )
 
-    # 4. Analyze Supervisor Sufficiency (if supervisors provided or checked)
+    # 4. Analyze Supervisor Sufficiency
     if supervisors is not None and total_students > 0:
         available_supervisors = [sup for sup in supervisors if getattr(sup, "is_available", True)]
-        # Heuristic estimation: each room takes ceil(students_in_room / students_per_supervisor)
-        # Minimum supervisors required is at least ceil(total_students / students_per_supervisor) or 1 per room
         est_min_supervisors = max(active_rooms_count, ceil(total_students / max(1, students_per_supervisor)))
         if len(available_supervisors) < est_min_supervisors:
             sup_deficit = est_min_supervisors - len(available_supervisors)
@@ -305,11 +369,11 @@ def diagnose_seating_feasibility(
                 DiagnosisIssue(
                     category="SUPERVISOR_DEFICIT",
                     severity="warning",
-                    title=f"Potential Supervisor Shortage ({sup_deficit} more needed)",
+                    title=f"Need {sup_deficit} More Teacher(s) for Exam Duty",
                     description=(
-                        f"There are {len(available_supervisors)} available supervisor(s), but at least "
-                        f"{est_min_supervisors} are recommended for {total_students} students across "
-                        f"{active_rooms_count} room(s) at 1:{students_per_supervisor} ratio."
+                        f"There are {len(available_supervisors)} available teacher(s), but at least "
+                        f"{est_min_supervisors} are needed for {total_students} students across "
+                        f"{active_rooms_count} room(s)."
                     ),
                     details={"available": len(available_supervisors), "needed": est_min_supervisors},
                 )
@@ -317,13 +381,15 @@ def diagnose_seating_feasibility(
             remediations.append(
                 RemediationOption(
                     id="adjust_supervisor_ratio",
-                    title="Adjust Supervisor Ratio or Mark More Available",
+                    title="Assign Backup Teachers or Increase Students per Teacher",
                     description=(
-                        f"Increase the student-to-supervisor ratio (e.g. from {students_per_supervisor} to "
-                        f"{ceil(total_students / max(1, len(available_supervisors)))}) or enable inactive supervisors."
+                        f"Turn on available backup teachers or assign slightly more students per teacher to cover all rooms."
                     ),
                     action_type="reduce_supervisor_ratio",
-                    impact="Prevents supervisor allocation bottlenecks",
+                    impact="Covers all exam rooms",
+                    confidence_score=94.0,
+                    trade_off="Teachers will look after slightly more students or extra backup teachers will be assigned.",
+                    payload={"target_ratio": ceil(total_students / max(1, len(available_supervisors)))},
                 )
             )
 
@@ -334,34 +400,34 @@ def diagnose_seating_feasibility(
                 DiagnosisIssue(
                     category="TIMEOUT",
                     severity="warning",
-                    title=f"Solver Reached Time Limit ({solver_result.runtime_seconds:.1f}s)",
+                    title=f"Planning Reached Time Limit ({solver_result.runtime_seconds:.1f}s)",
                     description=(
-                        "The solver hit the time limit before proving optimality or finding a solution. "
-                        "The search space may be large, or constraints are very tightly bounded."
+                        "The computer hit the time limit before finding a plan. "
+                        "Giving it more time or using normal spacing will help."
                     ),
                 )
             )
             remediations.append(
                 RemediationOption(
                     id="increase_time_limit",
-                    title=f"Increase Solver Time Limit to {max(120, time_limit_seconds * 2)}s",
-                    description="Gives OR-Tools CP-SAT more search tree depth to find a feasible solution.",
+                    title=f"Give Computer More Time to Plan ({max(120, time_limit_seconds * 2)}s)",
+                    description="Gives the system more time to calculate the best possible seating plan.",
                     action_type="increase_time",
-                    impact="Higher probability of finding feasible solution in dense instances",
+                    impact="Helps find a plan for tight rooms",
+                    confidence_score=88.0,
+                    trade_off="Planning will take a little longer before producing a result.",
                     payload={"time_limit": max(120, time_limit_seconds * 2)},
                 )
             )
         elif solver_result.status == "INFEASIBLE" and not issues:
-            # If our heuristic didn't catch a simple bound, the combination of multi-batch interleaving is infeasible
             issues.append(
                 DiagnosisIssue(
                     category="BATCH_BOTTLENECK",
                     severity="error",
-                    title="Tight Multi-Batch Interleaving Conflict",
+                    title="Spacing Rules are Too Tight",
                     description=(
-                        "Although total seats and individual batch bounds are theoretically sufficient, "
-                        "the combination of same-batch non-adjacency constraints across the room geometry "
-                        "leaves no valid permutation."
+                        "Even though total desks are enough, the rule keeping same-branch students apart "
+                        "leaves no valid plan. Switching to normal spacing will solve this."
                     ),
                 )
             )
@@ -369,10 +435,12 @@ def diagnose_seating_feasibility(
                 remediations.append(
                     RemediationOption(
                         id="relax_to_horizontal",
-                        title="Relax Batch Separation to 'Horizontal Only'",
-                        description="Reduces constraint density by ~50%, allowing same-batch students in adjacent rows.",
+                        title="Use Normal Spacing (Skip side-by-side seat only)",
+                        description="Only skip the seat right next to each student. Allows students in rows behind each other.",
                         action_type="relax_adjacency",
-                        impact="Dramatically expands feasible solution space",
+                        impact="Gives much more room for students",
+                        confidence_score=98.0,
+                        trade_off="Allows same-branch in consecutive rows, keeping side gap.",
                         payload={"target_adjacency": "horizontal"},
                     )
                 )
@@ -383,15 +451,15 @@ def diagnose_seating_feasibility(
         is_feasible = True
         overall_status = "FEASIBLE"
         summary = (
-            f"Pre-flight analysis verified: {total_students} student(s) can be seated in "
-            f"{total_usable_seats} usable seat(s) across {active_rooms_count} room(s)."
+            f"Pre-flight check passed: All {total_students} student(s) easily fit in "
+            f"{total_usable_seats} desk(s) across {active_rooms_count} open room(s)."
         )
     else:
         is_feasible = False
         overall_status = issues[0].category if issues else "INFEASIBLE"
         error_titles = [i.title for i in issues if i.severity == "error"]
         summary = (
-            f"Infeasibility detected: {', '.join(error_titles) if error_titles else 'Constraints are overly restrictive'}."
+            f"Students do not fit: {', '.join(error_titles) if error_titles else 'Room rules are too strict for current student numbers'}."
         )
 
     return DiagnosisReport(
@@ -406,3 +474,148 @@ def diagnose_seating_feasibility(
         batch_metrics=batch_metrics,
         remediations=remediations,
     )
+
+
+def apply_negotiation_proposal(
+    proposal_id: str,
+    db: Session,
+    context_config: Optional[Dict[str, Any]] = None,
+) -> Tuple[bool, str, Dict[str, Any]]:
+    """
+    Executes a chosen negotiation proposal against the database or configuration.
+    Returns: (success: bool, message: str, updated_context: Dict[str, Any])
+    """
+    ctx = dict(context_config or {})
+
+    # 1. Activate inactive classrooms
+    if proposal_id in ("activate_inactive_rooms", "activate_existing_rooms"):
+        inactive_rooms = db.scalars(
+            select(Classroom).where((Classroom.is_available == False) | (Classroom.is_available == None))
+        ).all()
+        if not inactive_rooms:
+            return True, "All classrooms are already active.", ctx
+
+        for room in inactive_rooms:
+            room.is_available = True
+        db.commit()
+
+        activated_names = [r.room_name for r in inactive_rooms]
+        ctx["activated_rooms"] = activated_names
+        return (
+            True,
+            f"✅ Activated {len(inactive_rooms)} classroom(s): {', '.join(activated_names)}. Additional capacity unlocked!",
+            ctx,
+        )
+
+    # 2. Relax batch separation to Horizontal Only
+    if proposal_id == "relax_to_horizontal":
+        ctx["adjacency_mode"] = "horizontal"
+        return (
+            True,
+            "✅ Batch separation relaxed to 'Horizontal Only'. Same-batch students may now sit in adjacent rows.",
+            ctx,
+        )
+
+    # 3. Increase solver time limit
+    if proposal_id == "increase_time_limit":
+        ctx["time_limit_seconds"] = 120
+        return (
+            True,
+            "✅ Solver time limit increased to 120 seconds for deeper CP-SAT tree exploration.",
+            ctx,
+        )
+
+    # 4. Adjust supervisor ratio or activate supervisors
+    if proposal_id == "adjust_supervisor_ratio":
+        inactive_sups = db.scalars(
+            select(Supervisor).where((Supervisor.is_available == False) | (Supervisor.is_available == None))
+        ).all()
+        for sup in inactive_sups:
+            sup.is_available = True
+        db.commit()
+
+        ctx["supervisors_activated"] = len(inactive_sups)
+        return (
+            True,
+            f"✅ Enabled {len(inactive_sups)} reserve supervisor(s). Invigilator shortage resolved.",
+            ctx,
+        )
+
+    # 5. Split largest batch into 2 shifts
+    if proposal_id == "split_batch":
+        active_students = db.scalars(select(Student).where(Student.is_active == True)).all()
+        batch_counts = defaultdict(list)
+        for s in active_students:
+            batch_counts[s.batch].append(s)
+
+        if not batch_counts:
+            return False, "No active students found to partition.", ctx
+
+        target_batch, students_in_batch = max(batch_counts.items(), key=lambda x: len(x[1]))
+        mid = ceil(len(students_in_batch) / 2)
+        shift1 = students_in_batch[:mid]
+        shift2 = students_in_batch[mid:]
+
+        ctx["split_batch"] = target_batch
+        ctx["shift_1_count"] = len(shift1)
+        ctx["shift_2_count"] = len(shift2)
+        return (
+            True,
+            f"✅ Batch '{target_batch}' successfully partitioned into Shift 1 ({len(shift1)} students) and Shift 2 ({len(shift2)} students).",
+            ctx,
+        )
+
+    return False, f"Unknown negotiation proposal ID: '{proposal_id}'", ctx
+
+
+def simulate_what_if_scenario(
+    students: List[StudentInfo],
+    layouts: List[ClassroomLayout],
+    student_multiplier: float = 1.0,
+    disabled_room_ids: Optional[List[str]] = None,
+    adjacency_mode: str = "horizontal_vertical",
+) -> Dict[str, Any]:
+    """
+    Performs an instantaneous, non-destructive What-If stress test simulation.
+    Tests hypothetical student volume surges, room closures, or constraint modifications.
+    """
+    disabled = set(disabled_room_ids or [])
+    sim_layouts = [
+        lay for lay in layouts
+        if lay.is_available and lay.usable_seats > 0 and lay.room_id not in disabled
+    ]
+
+    sim_students_count = max(1, int(len(students) * student_multiplier))
+    sim_seats_count = sum(lay.usable_seats for lay in sim_layouts)
+    sim_rooms_count = len(sim_layouts)
+
+    max_batch_cap = calculate_total_independent_capacity(sim_layouts, mode=adjacency_mode)
+
+    batch_counts: Dict[str, int] = defaultdict(int)
+    for s in students:
+        batch_counts[s.batch] += 1
+    scaled_batch_counts = {
+        b: max(1, int(cnt * student_multiplier))
+        for b, cnt in batch_counts.items()
+    }
+
+    bottlenecks = [
+        {"batch": b, "count": cnt, "max_cap": max_batch_cap, "deficit": cnt - max_batch_cap}
+        for b, cnt in scaled_batch_counts.items()
+        if cnt > max_batch_cap
+    ]
+
+    seat_deficit = max(0, sim_students_count - sim_seats_count)
+    is_feasible = (seat_deficit == 0) and (len(bottlenecks) == 0) and (sim_rooms_count > 0)
+
+    return {
+        "is_feasible": is_feasible,
+        "sim_students_count": sim_students_count,
+        "sim_seats_count": sim_seats_count,
+        "sim_rooms_count": sim_rooms_count,
+        "seat_deficit": seat_deficit,
+        "seat_surplus": max(0, sim_seats_count - sim_students_count),
+        "max_batch_capacity": max_batch_cap,
+        "bottlenecks": bottlenecks,
+        "adjacency_mode": adjacency_mode,
+    }

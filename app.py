@@ -36,8 +36,7 @@ def main():
 
     st.info(
         "**Welcome to EXAMFLOW!** Manage students, classrooms, "
-        "examination seating arrangements, supervisor allocation, "
-        "and verification from one place."
+        "exam seating plans, and teacher duty assignments all in one place."
     )
 
     # Dashboard metrics
@@ -50,46 +49,44 @@ def main():
         st.metric("Available Classrooms", "—")
 
     with col3:
-        st.metric("Usable Seats", "—")
+        st.metric("Usable Desks", "—")
 
     with col4:
-        st.metric("Available Supervisors", "—")
+        st.metric("Available Teachers", "—")
 
     st.divider()
 
-    st.subheader("System Overview")
+    st.subheader("How It Works")
 
     st.markdown("""
-    This system combines three modalities:
+    EXAMFLOW brings together:
 
-    | Modality | Component | Purpose |
+    | Input | Feature | What It Does |
     |---|---|---|
-    | **Structured Data** | CSV / Excel Import | Students, Classrooms, Supervisors |
-    | **Images** | Computer Vision | Detect and confirm classroom seat layouts |
-    | **Natural Language** | NLP Interpreter | Convert English instructions into constraints |
+    | **Spreadsheets** | CSV / Excel Import | Student, classroom, and teacher lists |
+    | **Room Photos** | Desk Detection | Checks desk layout from classroom images |
+    | **Plain English** | Smart Instructions | Understands everyday requests (like *"skip one seat between students"*) |
 
-    All three feed into a **Constraint Optimization Engine**
-    (Google OR-Tools CP-SAT) that generates seating plans
-    and supervisor allocations.
+    All of these feed into an **Automatic Seating Planner** that assigns fair, conflict-free seats and teacher duties in seconds.
     """)
 
-    st.subheader("Development Roadmap")
+    st.subheader("System Features")
 
     st.markdown("""
-    - ✅ **Phase 1** – Project structure and virtual environment
-    - ✅ **Phase 2** – Streamlit navigation
-    - ✅ **Phase 3** – Database models (SQLAlchemy)
-    - ✅ **Phase 4** – Structured data import and validation
-    - ✅ **Phase 5** – Classroom layout representation
-    - ✅ **Phase 6** – Computer Vision prototype
-    - ✅ **Phase 7** – Natural-language interpreter
-    - ✅ **Phase 8** – Seating optimization (OR-Tools)
-    - ✅ **Phase 9** – Supervisor allocation
-    - ✅ **Phase 10** – Independent verification
-    - ✅ **Phase 11** – Multimodal integration polish
-    - ✅ **Phase 12** – Reports and history
-    - ✅ **Phase 13** – AI Infeasibility Diagnostic & Negotiation Agent
-    - ✅ **Phase 14** – Autonomous AI Copilot & Natural Language Orchestrator
+    - ✅ **Phase 1** – Project structure and clean setup
+    - ✅ **Phase 2** – Easy sidebar navigation
+    - ✅ **Phase 3** – Database storage
+    - ✅ **Phase 4** – Simple spreadsheet import
+    - ✅ **Phase 5** – Classroom layout management
+    - ✅ **Phase 6** – Classroom desk photo detection
+    - ✅ **Phase 7** – Plain English instruction reader
+    - ✅ **Phase 8** – Fast automatic seating generator
+    - ✅ **Phase 9** – Teacher duty assignment
+    - ✅ **Phase 10** – Independent rules checker
+    - ✅ **Phase 11** – Modern clean visual design
+    - ✅ **Phase 12** – Downloadable reports & history
+    - ✅ **Phase 13** – Smart Seating Problem Solver & Easy Fixes (Agent 2)
+    - ✅ **Phase 14** – Helpful AI Assistant & Auto-Planner (Agent 1)
     """)
 
     st.success(

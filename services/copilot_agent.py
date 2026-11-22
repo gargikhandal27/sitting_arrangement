@@ -281,11 +281,12 @@ def handle_copilot_query(query: str, db: Session) -> CopilotResponse:
             ],
         )
 
-    # 2. Feasibility / Diagnostic Query
+    # 2. Feasibility / Diagnostic / Agent 2 Negotiation Query
     feasibility_keywords = [
         "feasib", "diagnos", "can we fit", "capacity check", "preflight", "pre-flight",
         "check if possible", "can we seat", "seat all", "enough seat", "fit all",
-        "will it fit", "can all students", "possible to seat", "capacity", "enough space"
+        "will it fit", "can all students", "possible to seat", "capacity", "enough space",
+        "negotiat", "triage", "agent 2", "iis", "trade-off", "tradeoff", "bottleneck"
     ]
     if any(k in q for k in feasibility_keywords):
         students = load_students_for_solver(db)
@@ -303,21 +304,27 @@ def handle_copilot_query(query: str, db: Session) -> CopilotResponse:
         )
 
         status_icon = "🟢" if diag.is_feasible else "🔴"
-        verdict_str = f"### {status_icon} Pre-Flight Feasibility: **{diag.overall_status}**\n\n{diag.summary}\n\n"
+        verdict_str = f"### {status_icon} Pre-Flight Feasibility & Agent 2 Infeasibility Triage: **{diag.overall_status}**\n\n{diag.summary}\n\n"
 
         # Issues details
         if diag.issues:
-            verdict_str += "#### ⚠️ Detected Issues & Bottlenecks:\n"
+            verdict_str += "#### ⚠️ Problems Found:\n"
             for i in diag.issues:
                 icon = "❌" if i.severity == "error" else "⚠️"
                 verdict_str += f"- **{icon} {i.title}**: {i.description}\n"
             verdict_str += "\n"
 
-        # Remediation recommendations
+        # Negotiation proposals with confidence scores
         if diag.remediations:
-            verdict_str += "#### 💡 AI Agent Recommended Remediations:\n"
+            verdict_str += "#### 💡 Recommended Quick Fixes:\n"
             for r in diag.remediations:
-                verdict_str += f"- **{r.title}**: {r.description} *(Impact: {r.impact})*\n"
+                conf = getattr(r, "confidence_score", 95.0)
+                trade = f" (What to keep in mind: *{r.trade_off}*)" if getattr(r, "trade_off", None) else ""
+                verdict_str += f"- **{r.title}** [`{conf}% success chance`]: {r.description}{trade} *(Benefit: {r.impact})*\n"
+            verdict_str += (
+                "\n> ⚖️ *You can apply any of these solutions with 1 click in the **Seating Generation** page, "
+                "or ask me to auto-plan seating now.*"
+            )
 
         return CopilotResponse(
             message=verdict_str,
