@@ -47,21 +47,20 @@ class CopilotResponse:
 
 def get_system_overview(db: Session) -> Dict[str, Any]:
     """Gather live data metrics from the database."""
-    students = repo.get_all_students(db)
+    batch_rows = db.execute(select(Student.batch, func.count()).group_by(Student.batch)).all()
+    batch_counts: Dict[str, int] = {str(b): int(cnt) for b, cnt in batch_rows if b}
+    student_count = sum(batch_counts.values()) or repo.count_students(db)
+
     classrooms = repo.get_all_classrooms(db)
     supervisors = repo.get_all_supervisors(db)
     layouts = get_all_layouts(db)
-
-    batch_counts: Dict[str, int] = {}
-    for s in students:
-        batch_counts[s.batch] = batch_counts.get(s.batch, 0) + 1
 
     active_layouts = [lay for lay in layouts if lay.is_available and lay.usable_seats > 0]
     total_usable_seats = sum(lay.usable_seats for lay in active_layouts)
     available_supervisors = [sup for sup in supervisors if sup.is_available]
 
     return {
-        "student_count": len(students),
+        "student_count": student_count,
         "batch_counts": batch_counts,
         "classroom_count": len(classrooms),
         "active_classroom_count": len(active_layouts),

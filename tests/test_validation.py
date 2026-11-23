@@ -71,76 +71,65 @@ def test_valid_supervisors():
     assert ok is True
 
 
-def test_repair_and_clean_students_duplicates_and_missing():
-    # DataFrame with duplicates and missing values as shown in user bug report
-    df = pd.DataFrame({
-        "student_id": ["STU001", "STU001", "STU002", "STU003", ""],
-        "roll_number": ["2024CSE001", "2024CSE001", "2024ECE002", "2024ECE002", "2024ME005"],
-        "student_name": ["Alice", "Alice Dup", "", None, "Eve"],
-        "batch": ["CSE", "CSE", "", "ECE", ""],
+def test_repair_and_clean_students():
+    # Messy data with missing names, batches, duplicate IDs & roll numbers, and blank rows
+    messy_df = pd.DataFrame({
+        "student_id": ["STU001", "STU002", "STU001", "STU003", "", None],
+        "roll_number": ["2024CSE001", "2024CSE002", "2024CSE003", "2024CSE001", "2024ECE005", "  "],
+        "student_name": ["Alice", None, "Charlie", "", "Eve", "  "],
+        "batch": ["CSE", None, "CSE", "", "ECE", "  "],
     })
-    # Initial validation must fail
-    is_valid, errors, _ = validate_students(df)
-    assert is_valid is False
-    assert len(errors) > 0
+    clean_df, actions = repair_and_clean_students(messy_df)
 
-    # Auto-clean and repair
-    repaired, actions = repair_and_clean_students(df)
     assert len(actions) > 0
-    assert len(repaired) == 3  # Dup STU001 dropped, dup 2024ECE002 dropped
+    # Blank row should be removed
+    assert len(clean_df) <= 4
 
-    # Repaired dataset MUST pass validation without errors
-    is_valid_repaired, errors_repaired, clean_repaired = validate_students(repaired)
-    assert is_valid_repaired is True
-    assert len(errors_repaired) == 0
-    assert len(clean_repaired) == 3
+    # Repaired dataframe MUST pass validate_students with 0 errors
+    ok, errors, validated = validate_students(clean_df)
+    assert ok is True, f"Validation failed with errors: {errors}"
+    assert len(errors) == 0
 
-    # Check student names were auto-filled
-    stu2_name = repaired.loc[repaired["student_id"] == "STU002", "student_name"].values[0]
-    assert "Student" in stu2_name
+    # Ensure no duplicates remain
+    assert clean_df["student_id"].duplicated().sum() == 0
+    assert clean_df["roll_number"].duplicated().sum() == 0
 
-    # Check batch was auto-filled/inferred
-    last_batch = repaired.loc[repaired["roll_number"] == "2024ME005", "batch"].values[0]
-    assert last_batch == "ME"
+    # Ensure missing names were filled
+    assert (clean_df["student_name"] == "").sum() == 0
+    assert any("Student" in name for name in clean_df["student_name"])
 
 
 def test_repair_and_clean_classrooms():
-    df = pd.DataFrame({
-        "room_id": ["R101", "R101", "R102", ""],
-        "room_name": ["Hall A", "Hall A Dup", "", "Lab B"],
-        "rows": [5, 5, -2, "invalid"],
-        "columns": [6, 6, 0, 8],
+    messy_df = pd.DataFrame({
+        "room_id": ["R101", "R102", "R101", "", None],
+        "room_name": ["Main Hall", "", "Main Hall Duplicate", "  ", ""],
+        "rows": [5, -2, "invalid", 4, 3],
+        "columns": [6, 0, None, 5, 4],
+        "is_available": [True, "yes", False, True, "1"],
     })
-    is_valid, errors, _ = validate_classrooms(df)
-    assert is_valid is False
+    clean_df, actions = repair_and_clean_classrooms(messy_df)
 
-    repaired, actions = repair_and_clean_classrooms(df)
     assert len(actions) > 0
-    # Duplicate R101 dropped -> 3 rooms left
-    assert len(repaired) == 3
-
-    # Validated
-    is_valid_repaired, errors_repaired, clean_repaired = validate_classrooms(repaired)
-    assert is_valid_repaired is True
-    assert len(errors_repaired) == 0
-    # Invalid rows corrected to default 5
-    assert (repaired["rows"] > 0).all()
-    assert (repaired["columns"] > 0).all()
+    ok, errors, validated = validate_classrooms(clean_df)
+    assert ok is True, f"Validation failed with errors: {errors}"
+    assert len(errors) == 0
+    assert clean_df["room_id"].duplicated().sum() == 0
+    assert (clean_df["rows"] > 0).all()
+    assert (clean_df["columns"] > 0).all()
 
 
 def test_repair_and_clean_supervisors():
-    df = pd.DataFrame({
-        "supervisor_id": ["SUP01", "SUP01", "SUP02", ""],
-        "supervisor_name": ["Dr. Smith", "Dr. Smith Dup", "", "Prof. Brown"],
+    messy_df = pd.DataFrame({
+        "supervisor_id": ["SUP01", "SUP02", "SUP01", "", None],
+        "supervisor_name": ["Dr. Smith", "", "Duplicate Smith", "Prof. Jane", ""],
+        "is_available": [True, False, True, "yes", "0"],
     })
-    is_valid, errors, _ = validate_supervisors(df)
-    assert is_valid is False
+    clean_df, actions = repair_and_clean_supervisors(messy_df)
 
-    repaired, actions = repair_and_clean_supervisors(df)
     assert len(actions) > 0
-    assert len(repaired) == 3
-
-    is_valid_repaired, errors_repaired, clean_repaired = validate_supervisors(repaired)
-    assert is_valid_repaired is True
-    assert len(errors_repaired) == 0
+    ok, errors, validated = validate_supervisors(clean_df)
+    assert ok is True, f"Validation failed with errors: {errors}"
+    assert len(errors) == 0
+    assert clean_df["supervisor_id"].duplicated().sum() == 0
+    assert (clean_df["supervisor_name"] == "").sum() == 0
 

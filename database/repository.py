@@ -1,7 +1,7 @@
 """
 Basic repository helpers for common database operations.
 """
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
@@ -35,6 +35,23 @@ def count_plans(db: Session) -> int:
 
 def get_all_students(db: Session) -> List[Student]:
     return list(db.scalars(select(Student).order_by(Student.student_id)).all())
+
+
+def get_students_records_fast(db: Session, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Fast columnar fetch avoiding full ORM instance hydration."""
+    query = select(Student.student_id, Student.roll_number, Student.student_name, Student.batch).order_by(Student.student_id)
+    if limit:
+        query = query.limit(limit)
+    rows = db.execute(query).all()
+    return [
+        {
+            "student_id": r[0],
+            "roll_number": r[1],
+            "student_name": r[2],
+            "batch": r[3],
+        }
+        for r in rows
+    ]
 
 
 def get_student_by_student_id(db: Session, student_id: str) -> Optional[Student]:

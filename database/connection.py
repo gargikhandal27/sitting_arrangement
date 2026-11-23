@@ -1,7 +1,7 @@
 """
 Database connection and session management.
 """
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from contextlib import contextmanager
 from typing import Generator
@@ -14,6 +14,16 @@ engine = create_engine(
     echo=False,          # Set True only for debugging SQL
     future=True,
 )
+
+# Enable SQLite WAL mode and optimizations
+if "sqlite" in DATABASE_URL.lower():
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA cache_size=-64000")  # 64MB cache
+        cursor.close()
 
 # Session factory
 SessionLocal = sessionmaker(

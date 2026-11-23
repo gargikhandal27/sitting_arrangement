@@ -200,6 +200,13 @@ def repair_and_clean_students(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]
         df.loc[df[col].str.lower() == "nan", col] = ""
         df.loc[df[col].str.lower() == "none", col] = ""
 
+    # Drop rows that are completely empty across student_id, roll_number, student_name
+    whitespace_empty_mask = (df["student_id"] == "") & (df["roll_number"] == "") & (df["student_name"] == "")
+    whitespace_empty_count = int(whitespace_empty_mask.sum())
+    if whitespace_empty_count > 0:
+        df = df[~whitespace_empty_mask].copy()
+        actions.append(f"Removed {whitespace_empty_count} blank row(s).")
+
     # Fix missing student_id
     missing_id_mask = df["student_id"] == ""
     missing_ids = int(missing_id_mask.sum())
@@ -306,6 +313,13 @@ def repair_and_clean_classrooms(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[st
     for col in ["room_id", "room_name"]:
         df[col] = df[col].fillna("").astype(str).str.strip()
 
+    # Drop rows that are completely blank across room_id and room_name
+    whitespace_empty_mask = (df["room_id"] == "") & (df["room_name"] == "")
+    whitespace_empty_count = int(whitespace_empty_mask.sum())
+    if whitespace_empty_count > 0:
+        df = df[~whitespace_empty_mask].copy()
+        actions.append(f"Removed {whitespace_empty_count} blank classroom row(s).")
+
     # Missing room_id
     missing_id_mask = df["room_id"] == ""
     missing_ids = int(missing_id_mask.sum())
@@ -362,6 +376,13 @@ def repair_and_clean_supervisors(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[s
 
     for col in ["supervisor_id", "supervisor_name"]:
         df[col] = df[col].fillna("").astype(str).str.strip()
+
+    # Drop rows that are completely blank across supervisor_id and supervisor_name
+    whitespace_empty_mask = (df["supervisor_id"] == "") & (df["supervisor_name"] == "")
+    whitespace_empty_count = int(whitespace_empty_mask.sum())
+    if whitespace_empty_count > 0:
+        df = df[~whitespace_empty_mask].copy()
+        actions.append(f"Removed {whitespace_empty_count} blank supervisor row(s).")
 
     # Missing supervisor_id
     missing_id_mask = df["supervisor_id"] == ""

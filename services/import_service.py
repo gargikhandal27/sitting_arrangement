@@ -27,7 +27,7 @@ def read_uploaded_file(uploaded_file) -> pd.DataFrame:
 
 def import_students(db: Session, df: pd.DataFrame, replace_existing: bool = False) -> Tuple[bool, str, int]:
     """
-    Validate and import students.
+    Validate and import students with high-performance bulk operations.
     Returns: (success, message, count_imported)
     """
     is_valid, errors, clean_df = validate_students(df)
@@ -37,25 +37,35 @@ def import_students(db: Session, df: pd.DataFrame, replace_existing: bool = Fals
     if replace_existing:
         db.execute(delete(Student))
         db.flush()
+        existing_ids = set()
+    else:
+        existing_ids = set(db.scalars(select(Student.student_id)).all())
 
     imported = 0
     skipped = 0
-    for _, row in clean_df.iterrows():
-        existing = db.scalar(select(Student).where(Student.student_id == row["student_id"]))
-        if existing:
+    new_students = []
+
+    for row in clean_df.itertuples(index=False):
+        sid = str(row.student_id)
+        if sid in existing_ids:
             skipped += 1
             continue
-        student = Student(
-            student_id=row["student_id"],
-            roll_number=row["roll_number"],
-            student_name=row["student_name"],
-            batch=row["batch"],
-            is_active=True,
+        new_students.append(
+            Student(
+                student_id=sid,
+                roll_number=str(row.roll_number),
+                student_name=str(row.student_name),
+                batch=str(row.batch),
+                is_active=True,
+            )
         )
-        db.add(student)
+        existing_ids.add(sid)
         imported += 1
 
+    if new_students:
+        db.add_all(new_students)
     db.commit()
+
     msg = f"Successfully imported {imported} student(s)."
     if skipped:
         msg += f" Skipped {skipped} duplicate student_id(s)."
@@ -70,41 +80,50 @@ def import_classrooms(db: Session, df: pd.DataFrame, replace_existing: bool = Fa
     if replace_existing:
         db.execute(delete(Classroom))
         db.flush()
+        existing_ids = set()
+    else:
+        existing_ids = set(db.scalars(select(Classroom.room_id)).all())
 
     imported = 0
     skipped = 0
-    for _, row in clean_df.iterrows():
-        existing = db.scalar(select(Classroom).where(Classroom.room_id == row["room_id"]))
-        if existing:
+    all_seats = []
+
+    for row in clean_df.itertuples(index=False):
+        rid = str(row.room_id)
+        if rid in existing_ids:
             skipped += 1
             continue
 
         classroom = Classroom(
-            room_id=row["room_id"],
-            room_name=row["room_name"],
-            rows=int(row["rows"]),
-            columns=int(row["columns"]),
-            is_available=bool(row["is_available"]),
+            room_id=rid,
+            room_name=str(row.room_name),
+            rows=int(row.rows),
+            columns=int(row.columns),
+            is_available=bool(row.is_available),
             layout_source="csv",
         )
         db.add(classroom)
         db.flush()  # get classroom.id
+        existing_ids.add(rid)
 
-        # Auto-generate seats for the grid
-        for r in range(1, int(row["rows"]) + 1):
-            for c in range(1, int(row["columns"]) + 1):
-                seat = Seat(
-                    classroom_id=classroom.id,
-                    seat_code=f"R{r}C{c}",
-                    row_number=r,
-                    column_number=c,
-                    is_available=True,
-                    is_confirmed=True,
-                    detection_source="csv",
+        # Bulk generate seats for the grid
+        for r in range(1, int(row.rows) + 1):
+            for c in range(1, int(row.columns) + 1):
+                all_seats.append(
+                    Seat(
+                        classroom_id=classroom.id,
+                        seat_code=f"R{r}C{c}",
+                        row_number=r,
+                        column_number=c,
+                        is_available=True,
+                        is_confirmed=True,
+                        detection_source="csv",
+                    )
                 )
-                db.add(seat)
-
         imported += 1
+
+    if all_seats:
+        db.add_all(all_seats)
 
     db.commit()
     msg = f"Successfully imported {imported} classroom(s) and generated seats."
@@ -121,23 +140,37 @@ def import_supervisors(db: Session, df: pd.DataFrame, replace_existing: bool = F
     if replace_existing:
         db.execute(delete(Supervisor))
         db.flush()
+        existing_ids = set()
+    else:
+        existing_ids = set(db.scalars(select(Supervisor.supervisor_id)).all())
 
     imported = 0
     skipped = 0
-    for _, row in clean_df.iterrows():
-        existing = db.scalar(select(Supervisor).where(Supervisor.supervisor_id == row["supervisor_id"]))
-        if existing:
+    new_sups = []
+
+    for row in clean_df.itertuples(index=False):
+        sup_id = str(row.supervisor_id)
+        if sup_id in existing_ids:
             skipped += 1
             continue
-        sup = Supervisor(
-            supervisor_id=row["supervisor_id"],
-            supervisor_name=row["supervisor_name"],
-            is_available=bool(row["is_available"]),
+        new_sups.append(
+            Supervisor(
+                supervisor_id=sup_id,
+                supervisor_name=str(row.supervisor_name),
+                is_available=bool(row.is_available),
+            )
         )
-        db.add(sup)
+        existing_ids.add(sup_id)
         imported += 1
 
+    if new_sups:
+        db.add_all(new_sups)
+
     db.commit()
+    msg = f"Successfully imported {imported} supervisor(s)."
+    if skipped:
+        msg += f" Skipped {skipped} duplicate supervisor_id(s)."
+    return True, msg, imported
     msg = f"Successfully imported {imported} supervisor(s)."
     if skipped:
         msg += f" Skipped {skipped} duplicate supervisor_id(s)."

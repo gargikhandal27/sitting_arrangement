@@ -14,6 +14,11 @@ from ui.theme import apply_theme
 from database.connection import init_db, get_db_session
 from database import repository as repo
 
+import services.validation_service
+import services.import_service
+importlib.reload(services.validation_service)
+importlib.reload(services.import_service)
+
 from services.import_service import (
     read_uploaded_file,
     import_students,
@@ -122,14 +127,14 @@ with tab_students:
     if uploaded is not None:
 
         try:
-            # Reset auto-clean state if a new file is uploaded
-            file_sig = f"{uploaded.name}_{uploaded.size}"
-            if st.session_state.get("last_student_file_sig") != file_sig:
-                st.session_state["last_student_file_sig"] = file_sig
-                st.session_state.pop("repaired_students_df", None)
-                st.session_state.pop("repair_actions_students", None)
 
-            df = read_uploaded_file(uploaded)
+            file_cache_key = f"cache_parsed_stu_{uploaded.name}_{uploaded.size}"
+            if file_cache_key not in st.session_state:
+                parsed_df = read_uploaded_file(uploaded)
+                is_val, errs, cln_df = validate_students(parsed_df)
+                st.session_state[file_cache_key] = (parsed_df, is_val, errs, cln_df)
+
+            df, is_valid, errors, clean_df = st.session_state[file_cache_key]
 
             st.markdown("### Uploaded File Preview")
 
@@ -141,8 +146,6 @@ with tab_students:
                 hide_index=True,
             )
 
-            is_valid, errors, clean_df = validate_students(df)
-
             st.divider()
 
             if not is_valid:
@@ -152,80 +155,100 @@ with tab_students:
                 for error in errors:
                     st.write(f"- {error}")
 
-                st.warning(
-                    "💡 **Auto-Repair Available:** Your file contains duplicates or missing values. "
-                    "ExamFlow can automatically clean and repair the records in one click (drop duplicate IDs/rolls, "
-                    "fill missing names with 'Student <roll>', and assign default batches)."
-                )
+                st.write("")
+                with st.container(border=True):
+                    st.markdown("### 🛠️ 1-Click Smart Auto-Clean & Repair")
+                    st.markdown(
+                        "ExamFlow can automatically resolve common student data issues: "
+                        "fill in missing student names (e.g. 'Student <roll_number>'), resolve batches, "
+                        "remove duplicate IDs/roll numbers, and trim blank rows."
+                    )
 
-                if st.button(
-                    "✨ Auto-Clean & Repair Student Data",
-                    key="btn_repair_students",
-                    type="primary",
-                ):
-                    repaired_df, actions = repair_and_clean_students(df)
-                    st.session_state["repaired_students_df"] = repaired_df
-                    st.session_state["repair_actions_students"] = actions
-                    st.rerun()
+                    if st.session_state.get("students_last_file") != uploaded.name:
+                        st.session_state["students_last_file"] = uploaded.name
+                        st.session_state["students_repaired_data"] = None
 
-            # Display Auto-Clean results if present
-            if not is_valid and "repaired_students_df" in st.session_state:
-                repaired_df = st.session_state["repaired_students_df"]
-                actions = st.session_state.get("repair_actions_students", [])
+                    if st.button(
+                        "✨ Auto-Clean & Repair Students Now",
+                        type="primary",
+                        key="btn_repair_students",
+                        use_container_width=True,
+                    ):
+                        repaired_df, actions = repair_and_clean_students(df)
+                        st.session_state["students_repaired_data"] = {
+                            "df": repaired_df,
+                            "actions": actions,
+                            "initial_count": len(df),
+                            "cleaned_count": len(repaired_df),
+                        }
+                        st.rerun()
 
-                st.success(
-                    f"🎉 Successfully cleaned and repaired {len(repaired_df)} student record(s)! Ready for import."
-                )
+                    repaired_info = st.session_state.get("students_repaired_data")
+                    if repaired_info is not None:
+                        repaired_df = repaired_info["df"]
+                        actions = repaired_info["actions"]
+                        initial_count = repaired_info["initial_count"]
+                        cleaned_count = repaired_info["cleaned_count"]
 
-                with st.expander("📋 Review Auto-Clean Actions Taken", expanded=True):
-                    for action in actions:
-                        st.markdown(f"- ✅ {action}")
-
-                st.markdown("### Cleaned Student Data Preview")
-                st.dataframe(
-                    repaired_df.head(20),
-                    use_container_width=True,
-                    hide_index=True,
-                )
-
-                csv_data = repaired_df.to_csv(index=False).encode("utf-8")
-                st.download_button(
-                    "⬇️ Download Cleaned Students CSV",
-                    data=csv_data,
-                    file_name="cleaned_students.csv",
-                    mime="text/csv",
-                    key="dl_cleaned_students",
-                )
-
-                replace = st.checkbox(
-                    "Replace all existing students",
-                    value=False,
-                    key="replace_students_repaired",
-                    help="This replaces previously imported student records.",
-                )
-
-                if st.button(
-                    "🚀 Confirm & Import Cleaned Students",
-                    type="primary",
-                    key="btn_import_students_repaired",
-                    use_container_width=True,
-                ):
-                    with get_db_session() as db:
-                        success, message, count = import_students(
-                            db,
-                            repaired_df,
-                            replace_existing=replace,
+                        st.success(
+                            f"Student dataset repaired successfully! "
+                            f"{cleaned_count} clean records are ready for import."
                         )
 
-                    if success:
-                        st.success(message)
-                        st.balloons()
-                        st.session_state.pop("repaired_students_df", None)
-                        st.session_state.pop("repair_actions_students", None)
-                    else:
-                        st.error(message)
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("Original Rows", initial_count)
+                        m2.metric("Clean Records", cleaned_count)
+                        m3.metric("Status", "100% Ready")
 
-            elif is_valid:
+                        with st.expander("🔍 See Auto-Repair Details (Actions Taken)", expanded=True):
+                            for action in actions:
+                                st.write(f"• {action}")
+
+                        st.markdown("**Cleaned Student Data Preview**")
+                        st.dataframe(
+                            repaired_df.head(20),
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+
+                        csv_data = repaired_df.to_csv(index=False).encode("utf-8")
+                        st.download_button(
+                            label="⬇️ Download Cleaned Students CSV",
+                            data=csv_data,
+                            file_name=f"cleaned_{uploaded.name.rsplit('.', 1)[0]}.csv",
+                            mime="text/csv",
+                            use_container_width=True,
+                        )
+
+                        st.divider()
+
+                        replace_repaired = st.checkbox(
+                            "Replace all existing students",
+                            value=False,
+                            key="replace_repaired_students",
+                            help="This replaces previously imported student records.",
+                        )
+
+                        if st.button(
+                            "Confirm & Import Cleaned Students",
+                            type="primary",
+                            key="btn_import_repaired_students",
+                            use_container_width=True,
+                        ):
+                            with get_db_session() as db:
+                                success, message, count = import_students(
+                                    db,
+                                    repaired_df,
+                                    replace_existing=replace_repaired,
+                                )
+
+                            if success:
+                                st.success(message)
+                                st.balloons()
+                            else:
+                                st.error(message)
+
+            else:
 
                 st.success(
                     f"Validation successful! "
@@ -239,6 +262,14 @@ with tab_students:
                         use_container_width=True,
                         hide_index=True,
                     )
+
+                csv_data = clean_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    label="⬇️ Download Cleaned Students CSV",
+                    data=csv_data,
+                    file_name=f"cleaned_{uploaded.name.rsplit('.', 1)[0]}.csv",
+                    mime="text/csv",
+                )
 
                 replace = st.checkbox(
                     "Replace all existing students",
@@ -326,14 +357,14 @@ with tab_classrooms:
     if uploaded is not None:
 
         try:
-            # Reset auto-clean state if a new file is uploaded
-            file_sig = f"{uploaded.name}_{uploaded.size}"
-            if st.session_state.get("last_classroom_file_sig") != file_sig:
-                st.session_state["last_classroom_file_sig"] = file_sig
-                st.session_state.pop("repaired_classrooms_df", None)
-                st.session_state.pop("repair_actions_classrooms", None)
 
-            df = read_uploaded_file(uploaded)
+            file_cache_key = f"cache_parsed_cls_{uploaded.name}_{uploaded.size}"
+            if file_cache_key not in st.session_state:
+                parsed_df = read_uploaded_file(uploaded)
+                is_val, errs, cln_df = validate_classrooms(parsed_df)
+                st.session_state[file_cache_key] = (parsed_df, is_val, errs, cln_df)
+
+            df, is_valid, errors, clean_df = st.session_state[file_cache_key]
 
             st.markdown("### Uploaded File Preview")
 
@@ -342,8 +373,6 @@ with tab_classrooms:
                 use_container_width=True,
                 hide_index=True,
             )
-
-            is_valid, errors, clean_df = validate_classrooms(df)
 
             st.divider()
 
@@ -354,78 +383,95 @@ with tab_classrooms:
                 for error in errors:
                     st.write(f"- {error}")
 
-                st.warning(
-                    "💡 **Auto-Repair Available:** Your file contains missing room names, invalid rows/columns, "
-                    "or duplicate room IDs. ExamFlow can automatically clean and repair them in one click."
-                )
+                st.write("")
+                with st.container(border=True):
+                    st.markdown("### 🛠️ 1-Click Smart Auto-Clean & Repair")
+                    st.markdown(
+                        "ExamFlow can automatically resolve common classroom errors: "
+                        "fill in missing room names, fix invalid grid dimensions (defaults to 5 rows x 6 columns), "
+                        "remove duplicate room IDs, and prune blank rows."
+                    )
 
-                if st.button(
-                    "✨ Auto-Clean & Repair Classroom Data",
-                    key="btn_repair_classrooms",
-                    type="primary",
-                ):
-                    repaired_df, actions = repair_and_clean_classrooms(df)
-                    st.session_state["repaired_classrooms_df"] = repaired_df
-                    st.session_state["repair_actions_classrooms"] = actions
-                    st.rerun()
+                    if st.session_state.get("classrooms_last_file") != uploaded.name:
+                        st.session_state["classrooms_last_file"] = uploaded.name
+                        st.session_state["classrooms_repaired_data"] = None
 
-            # Display Auto-Clean results if present
-            if not is_valid and "repaired_classrooms_df" in st.session_state:
-                repaired_df = st.session_state["repaired_classrooms_df"]
-                actions = st.session_state.get("repair_actions_classrooms", [])
+                    if st.button(
+                        "✨ Auto-Clean & Repair Classrooms Now",
+                        type="primary",
+                        key="btn_repair_classrooms",
+                        use_container_width=True,
+                    ):
+                        repaired_df, actions = repair_and_clean_classrooms(df)
+                        st.session_state["classrooms_repaired_data"] = {
+                            "df": repaired_df,
+                            "actions": actions,
+                            "initial_count": len(df),
+                            "cleaned_count": len(repaired_df),
+                        }
+                        st.rerun()
 
-                st.success(
-                    f"🎉 Successfully cleaned and repaired {len(repaired_df)} classroom record(s)! Ready for import."
-                )
+                    repaired_info = st.session_state.get("classrooms_repaired_data")
+                    if repaired_info is not None:
+                        repaired_df = repaired_info["df"]
+                        actions = repaired_info["actions"]
+                        initial_count = repaired_info["initial_count"]
+                        cleaned_count = repaired_info["cleaned_count"]
 
-                with st.expander("📋 Review Auto-Clean Actions Taken", expanded=True):
-                    for action in actions:
-                        st.markdown(f"- ✅ {action}")
-
-                st.markdown("### Cleaned Classroom Data Preview")
-                st.dataframe(
-                    repaired_df,
-                    use_container_width=True,
-                    hide_index=True,
-                )
-
-                csv_data = repaired_df.to_csv(index=False).encode("utf-8")
-                st.download_button(
-                    "⬇️ Download Cleaned Classrooms CSV",
-                    data=csv_data,
-                    file_name="cleaned_classrooms.csv",
-                    mime="text/csv",
-                    key="dl_cleaned_classrooms",
-                )
-
-                replace = st.checkbox(
-                    "Replace all existing classrooms and their seats",
-                    value=False,
-                    key="replace_classrooms_repaired",
-                )
-
-                if st.button(
-                    "🚀 Confirm & Import Cleaned Classrooms",
-                    type="primary",
-                    key="btn_import_classrooms_repaired",
-                    use_container_width=True,
-                ):
-                    with get_db_session() as db:
-                        success, message, count = import_classrooms(
-                            db,
-                            repaired_df,
-                            replace_existing=replace,
+                        st.success(
+                            f"Classroom dataset repaired successfully! "
+                            f"{cleaned_count} clean records are ready for import."
                         )
 
-                    if success:
-                        st.success(message)
-                        st.balloons()
-                        st.session_state.pop("repaired_classrooms_df", None)
-                        st.session_state.pop("repair_actions_classrooms", None)
-                    else:
-                        st.error(message)
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("Original Rows", initial_count)
+                        m2.metric("Clean Rooms", cleaned_count)
+                        m3.metric("Status", "100% Ready")
 
-            elif is_valid:
+                        with st.expander("🔍 See Auto-Repair Details (Actions Taken)", expanded=True):
+                            for action in actions:
+                                st.write(f"• {action}")
+
+                        st.markdown("**Cleaned Classroom Data Preview**")
+                        st.dataframe(repaired_df, use_container_width=True, hide_index=True)
+
+                        csv_data = repaired_df.to_csv(index=False).encode("utf-8")
+                        st.download_button(
+                            label="⬇️ Download Cleaned Classrooms CSV",
+                            data=csv_data,
+                            file_name=f"cleaned_{uploaded.name.rsplit('.', 1)[0]}.csv",
+                            mime="text/csv",
+                            use_container_width=True,
+                        )
+
+                        st.divider()
+
+                        replace_repaired = st.checkbox(
+                            "Replace all existing classrooms and their seats",
+                            value=False,
+                            key="replace_repaired_classrooms",
+                        )
+
+                        if st.button(
+                            "Confirm & Import Cleaned Classrooms",
+                            type="primary",
+                            key="btn_import_repaired_classrooms",
+                            use_container_width=True,
+                        ):
+                            with get_db_session() as db:
+                                success, message, count = import_classrooms(
+                                    db,
+                                    repaired_df,
+                                    replace_existing=replace_repaired,
+                                )
+
+                            if success:
+                                st.success(message)
+                                st.balloons()
+                            else:
+                                st.error(message)
+
+            else:
 
                 st.success(
                     f"Validation successful! "
@@ -444,6 +490,14 @@ with tab_classrooms:
                         use_container_width=True,
                         hide_index=True,
                     )
+
+                csv_data = clean_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    label="⬇️ Download Cleaned Classrooms CSV",
+                    data=csv_data,
+                    file_name=f"cleaned_{uploaded.name.rsplit('.', 1)[0]}.csv",
+                    mime="text/csv",
+                )
 
                 replace = st.checkbox(
                     "Replace all existing classrooms and their seats",
@@ -530,14 +584,14 @@ with tab_supervisors:
     if uploaded is not None:
 
         try:
-            # Reset auto-clean state if a new file is uploaded
-            file_sig = f"{uploaded.name}_{uploaded.size}"
-            if st.session_state.get("last_supervisor_file_sig") != file_sig:
-                st.session_state["last_supervisor_file_sig"] = file_sig
-                st.session_state.pop("repaired_supervisors_df", None)
-                st.session_state.pop("repair_actions_supervisors", None)
 
-            df = read_uploaded_file(uploaded)
+            file_cache_key = f"cache_parsed_sup_{uploaded.name}_{uploaded.size}"
+            if file_cache_key not in st.session_state:
+                parsed_df = read_uploaded_file(uploaded)
+                is_val, errs, cln_df = validate_supervisors(parsed_df)
+                st.session_state[file_cache_key] = (parsed_df, is_val, errs, cln_df)
+
+            df, is_valid, errors, clean_df = st.session_state[file_cache_key]
 
             st.markdown("### Uploaded File Preview")
 
@@ -546,8 +600,6 @@ with tab_supervisors:
                 use_container_width=True,
                 hide_index=True,
             )
-
-            is_valid, errors, clean_df = validate_supervisors(df)
 
             st.divider()
 
@@ -558,78 +610,95 @@ with tab_supervisors:
                 for error in errors:
                     st.write(f"- {error}")
 
-                st.warning(
-                    "💡 **Auto-Repair Available:** Your file contains missing names or duplicate supervisor IDs. "
-                    "ExamFlow can automatically clean and repair them in one click."
-                )
+                st.write("")
+                with st.container(border=True):
+                    st.markdown("### 🛠️ 1-Click Smart Auto-Clean & Repair")
+                    st.markdown(
+                        "ExamFlow can automatically resolve common supervisor errors: "
+                        "generate missing supervisor IDs, fill default names, "
+                        "remove duplicate IDs, and prune blank rows."
+                    )
 
-                if st.button(
-                    "✨ Auto-Clean & Repair Supervisor Data",
-                    key="btn_repair_supervisors",
-                    type="primary",
-                ):
-                    repaired_df, actions = repair_and_clean_supervisors(df)
-                    st.session_state["repaired_supervisors_df"] = repaired_df
-                    st.session_state["repair_actions_supervisors"] = actions
-                    st.rerun()
+                    if st.session_state.get("supervisors_last_file") != uploaded.name:
+                        st.session_state["supervisors_last_file"] = uploaded.name
+                        st.session_state["supervisors_repaired_data"] = None
 
-            # Display Auto-Clean results if present
-            if not is_valid and "repaired_supervisors_df" in st.session_state:
-                repaired_df = st.session_state["repaired_supervisors_df"]
-                actions = st.session_state.get("repair_actions_supervisors", [])
+                    if st.button(
+                        "✨ Auto-Clean & Repair Supervisors Now",
+                        type="primary",
+                        key="btn_repair_supervisors",
+                        use_container_width=True,
+                    ):
+                        repaired_df, actions = repair_and_clean_supervisors(df)
+                        st.session_state["supervisors_repaired_data"] = {
+                            "df": repaired_df,
+                            "actions": actions,
+                            "initial_count": len(df),
+                            "cleaned_count": len(repaired_df),
+                        }
+                        st.rerun()
 
-                st.success(
-                    f"🎉 Successfully cleaned and repaired {len(repaired_df)} supervisor record(s)! Ready for import."
-                )
+                    repaired_info = st.session_state.get("supervisors_repaired_data")
+                    if repaired_info is not None:
+                        repaired_df = repaired_info["df"]
+                        actions = repaired_info["actions"]
+                        initial_count = repaired_info["initial_count"]
+                        cleaned_count = repaired_info["cleaned_count"]
 
-                with st.expander("📋 Review Auto-Clean Actions Taken", expanded=True):
-                    for action in actions:
-                        st.markdown(f"- ✅ {action}")
-
-                st.markdown("### Cleaned Supervisor Data Preview")
-                st.dataframe(
-                    repaired_df,
-                    use_container_width=True,
-                    hide_index=True,
-                )
-
-                csv_data = repaired_df.to_csv(index=False).encode("utf-8")
-                st.download_button(
-                    "⬇️ Download Cleaned Supervisors CSV",
-                    data=csv_data,
-                    file_name="cleaned_supervisors.csv",
-                    mime="text/csv",
-                    key="dl_cleaned_supervisors",
-                )
-
-                replace = st.checkbox(
-                    "Replace all existing supervisors",
-                    value=False,
-                    key="replace_supervisors_repaired",
-                )
-
-                if st.button(
-                    "🚀 Confirm & Import Cleaned Supervisors",
-                    type="primary",
-                    key="btn_import_supervisors_repaired",
-                    use_container_width=True,
-                ):
-                    with get_db_session() as db:
-                        success, message, count = import_supervisors(
-                            db,
-                            repaired_df,
-                            replace_existing=replace,
+                        st.success(
+                            f"Supervisor dataset repaired successfully! "
+                            f"{cleaned_count} clean records are ready for import."
                         )
 
-                    if success:
-                        st.success(message)
-                        st.balloons()
-                        st.session_state.pop("repaired_supervisors_df", None)
-                        st.session_state.pop("repair_actions_supervisors", None)
-                    else:
-                        st.error(message)
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("Original Rows", initial_count)
+                        m2.metric("Clean Supervisors", cleaned_count)
+                        m3.metric("Status", "100% Ready")
 
-            elif is_valid:
+                        with st.expander("🔍 See Auto-Repair Details (Actions Taken)", expanded=True):
+                            for action in actions:
+                                st.write(f"• {action}")
+
+                        st.markdown("**Cleaned Supervisor Data Preview**")
+                        st.dataframe(repaired_df, use_container_width=True, hide_index=True)
+
+                        csv_data = repaired_df.to_csv(index=False).encode("utf-8")
+                        st.download_button(
+                            label="⬇️ Download Cleaned Supervisors CSV",
+                            data=csv_data,
+                            file_name=f"cleaned_{uploaded.name.rsplit('.', 1)[0]}.csv",
+                            mime="text/csv",
+                            use_container_width=True,
+                        )
+
+                        st.divider()
+
+                        replace_repaired = st.checkbox(
+                            "Replace all existing supervisors",
+                            value=False,
+                            key="replace_repaired_supervisors",
+                        )
+
+                        if st.button(
+                            "Confirm & Import Cleaned Supervisors",
+                            type="primary",
+                            key="btn_import_repaired_supervisors",
+                            use_container_width=True,
+                        ):
+                            with get_db_session() as db:
+                                success, message, count = import_supervisors(
+                                    db,
+                                    repaired_df,
+                                    replace_existing=replace_repaired,
+                                )
+
+                            if success:
+                                st.success(message)
+                                st.balloons()
+                            else:
+                                st.error(message)
+
+            else:
 
                 st.success(
                     f"Validation successful! "
@@ -643,6 +712,14 @@ with tab_supervisors:
                         use_container_width=True,
                         hide_index=True,
                     )
+
+                csv_data = clean_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    label="⬇️ Download Cleaned Supervisors CSV",
+                    data=csv_data,
+                    file_name=f"cleaned_{uploaded.name.rsplit('.', 1)[0]}.csv",
+                    mime="text/csv",
+                )
 
                 replace = st.checkbox(
                     "Replace all existing supervisors",
@@ -692,18 +769,11 @@ with tab_view:
         "supervisors, and available seats."
     )
 
-    # Retrieve plain dictionaries while the session is open.
+    # Retrieve database records efficiently
     with get_db_session() as db:
 
-        students_data = [
-            {
-                "student_id": s.student_id,
-                "roll_number": s.roll_number,
-                "student_name": s.student_name,
-                "batch": s.batch,
-            }
-            for s in repo.get_all_students(db)
-        ]
+        total_students_count = repo.count_students(db)
+        students_preview = repo.get_students_records_fast(db, limit=100)
 
         classrooms_data = [
             {
@@ -738,7 +808,7 @@ with tab_view:
 
     col1.metric(
         "Total Students",
-        len(students_data),
+        total_students_count,
     )
 
     col2.metric(
@@ -764,13 +834,31 @@ with tab_view:
 
     st.markdown("### Student Records")
 
-    if students_data:
+    if total_students_count > 0:
 
-        st.dataframe(
-            pd.DataFrame(students_data),
-            use_container_width=True,
-            hide_index=True,
-        )
+        if total_students_count > 100:
+            st.caption(f"Showing first 100 of {total_students_count} students (fast view).")
+            show_all = st.checkbox(f"Show all {total_students_count} students", key="chk_show_all_students")
+            if show_all:
+                with get_db_session() as db:
+                    all_students_data = repo.get_students_records_fast(db)
+                st.dataframe(
+                    pd.DataFrame(all_students_data),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            else:
+                st.dataframe(
+                    pd.DataFrame(students_preview),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+        else:
+            st.dataframe(
+                pd.DataFrame(students_preview),
+                use_container_width=True,
+                hide_index=True,
+            )
 
     else:
 

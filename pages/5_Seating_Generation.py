@@ -39,8 +39,12 @@ st.markdown(
 st.write("")
 
 # --------------------------------------------------
-# MAIN WORKSPACE TABS
+# MAIN WORKSPACE TABS & DATA PREFETCH
 # --------------------------------------------------
+with get_db_session() as db:
+    all_rooms_list = get_all_layouts(db)
+    all_students_base = load_students_for_solver(db)
+
 tab_plan, tab_what_if, tab_capacity = st.tabs([
     "🪑 Create Seating Plan",
     "🔮 Test Scenarios ('What-If')",
@@ -91,9 +95,6 @@ with tab_plan:
     )
 
     # 2. Classroom Filter Selection
-    with get_db_session() as db:
-        all_rooms_list = get_all_layouts(db)
-
     available_room_options = [lay.room_id for lay in all_rooms_list if lay.is_available and lay.usable_seats > 0]
     room_labels_map = {
         lay.room_id: f"{lay.room_name} ({lay.usable_seats} usable desks)"
@@ -380,10 +381,8 @@ with tab_what_if:
         "See what happens if more students register or if any classroom is closed for maintenance—without changing any real data."
     )
 
-    with get_db_session() as db:
-        sim_students_base = load_students_for_solver(db)
-        sim_all_layouts = get_all_layouts(db)
-
+    sim_students_base = all_students_base
+    sim_all_layouts = all_rooms_list
     total_base_students = len(sim_students_base)
 
     sim_col1, sim_col2 = st.columns([1, 1])
@@ -473,9 +472,7 @@ with tab_capacity:
         "Because of this empty desk rule, each room safely holds about half its total desks for students from the same branch."
     )
 
-    with get_db_session() as db:
-        cap_layouts = get_all_layouts(db)
-
+    cap_layouts = all_rooms_list
     analysis_data = get_classroom_checkerboard_analysis(cap_layouts)
     if analysis_data:
         geo_df = pd.DataFrame([
