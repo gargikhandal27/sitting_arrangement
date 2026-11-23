@@ -392,14 +392,12 @@ def apply_theme() -> str:
         border-radius: 12px;
     }}
 
-    /* All Text Inputs */
+    /* All Text Inputs (standalone fields only) */
     [data-testid="stTextInput"] input,
     [data-testid="stNumberInput"] input,
     [data-testid="stDateInput"] input,
     [data-testid="stTimeInput"] input,
     [data-testid="stTextArea"] textarea,
-    input[type="text"],
-    input[type="number"],
     [data-baseweb="input"] input,
     [data-baseweb="textarea"] textarea {{
         background: var(--exam-input) !important;
@@ -422,13 +420,32 @@ def apply_theme() -> str:
         border-color: var(--exam-primary) !important;
     }}
 
-    /* Selectbox and Multiselect */
+    /* Selectbox and Multiselect Container */
     [data-testid="stSelectbox"] [data-baseweb="select"] > div,
     [data-testid="stMultiSelect"] [data-baseweb="select"] > div {{
         background: var(--exam-input) !important;
         color: var(--exam-text) !important;
         border-color: var(--exam-border) !important;
         border-radius: 9px !important;
+    }}
+
+    /* Reset filter input inside Selectbox and Multiselect (removes the useless bar) */
+    [data-testid="stSelectbox"] input,
+    [data-testid="stMultiSelect"] input,
+    [data-baseweb="select"] input,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] input,
+    [data-testid="stSelectbox"] [data-baseweb="select"] input {{
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        outline: none !important;
+        color: var(--exam-text) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        min-height: 0 !important;
+        height: auto !important;
     }}
 
     [data-testid="stSelectbox"] [data-baseweb="select"] svg,
