@@ -420,17 +420,64 @@ def apply_theme() -> str:
         border-color: var(--exam-primary) !important;
     }}
 
-    /* Selectbox and Multiselect Container */
+    /* ==================================================
+       SELECTBOX & MULTISELECT (Streamlit 1.66+ & BaseWeb)
+       ================================================== */
+
+    /* Selectbox main control box */
+    .stSelectbox > div > div,
+    [data-testid="stSelectbox"] > div > div,
+    .stSelectbox div[class*="e1oobldh0"],
+    [data-testid="stSelectbox"] div[class*="e1oobldh0"],
+    .stSelectbox [data-baseweb="select"] > div,
     [data-testid="stSelectbox"] [data-baseweb="select"] > div,
-    [data-testid="stMultiSelect"] [data-baseweb="select"] > div {{
+    div[data-testid="stSelectbox"] [role="combobox"] {{
         background: var(--exam-input) !important;
+        background-color: var(--exam-input) !important;
         color: var(--exam-text) !important;
-        border-color: var(--exam-border) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
+        border: 1px solid var(--exam-border) !important;
         border-radius: 9px !important;
     }}
 
-    /* Reset filter input inside Selectbox and Multiselect (removes the useless bar) */
+    /* Selectbox display text / input (ensures selected text is clearly visible) */
+    .stSelectbox input,
     [data-testid="stSelectbox"] input,
+    .stSelectbox div[class*="e1oobldh1"],
+    [data-testid="stSelectbox"] div[class*="e1oobldh1"],
+    [data-testid="stSelectbox"] [data-baseweb="select"] * {{
+        background: transparent !important;
+        background-color: transparent !important;
+        color: var(--exam-text) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
+        border: none !important;
+        font-weight: 500 !important;
+    }}
+
+    /* Multiselect main control box */
+    .stMultiSelect > div > div,
+    [data-testid="stMultiSelect"] > div > div,
+    .stMultiSelect [data-baseweb="select"] > div,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+    div[data-testid="stMultiSelect"] div:has(> [data-testid="stMultiSelectTagsContainer"]) {{
+        background: var(--exam-input) !important;
+        background-color: var(--exam-input) !important;
+        color: var(--exam-text) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 9px !important;
+    }}
+
+    /* Multiselect tags container */
+    [data-testid="stMultiSelectTagsContainer"],
+    .stMultiSelectTagsContainer,
+    [data-testid="stMultiSelect"] [data-testid="stMultiSelectTagsContainer"] {{
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+    }}
+
+    /* Reset filter input inside Selectbox and Multiselect (removes the useless bar) */
+    .stMultiSelect input,
     [data-testid="stMultiSelect"] input,
     [data-baseweb="select"] input,
     [data-testid="stMultiSelect"] [data-baseweb="select"] input,
@@ -448,45 +495,89 @@ def apply_theme() -> str:
         height: auto !important;
     }}
 
+    /* Chevron arrows, cross/clear buttons, and SVGs inside Selectbox & Multiselect */
+    .stSelectbox svg,
+    [data-testid="stSelectbox"] svg,
+    .stMultiSelect svg,
+    [data-testid="stMultiSelect"] svg,
     [data-testid="stSelectbox"] [data-baseweb="select"] svg,
     [data-testid="stMultiSelect"] [data-baseweb="select"] svg {{
-        color: var(--exam-text) !important;
+        color: var(--exam-muted) !important;
         fill: currentColor !important;
+        stroke: currentColor !important;
+    }}
+
+    .stSelectbox svg:hover,
+    [data-testid="stSelectbox"] svg:hover,
+    .stMultiSelect svg:hover,
+    [data-testid="stMultiSelect"] svg:hover {{
+        color: var(--exam-text) !important;
     }}
 
     /* BaseWeb Multiselect Tags (Pills) */
-    [data-baseweb="tag"] {{
+    [data-baseweb="tag"],
+    [data-testid="stMultiSelectTagsContainer"] > div,
+    [data-testid="stMultiSelect"] span[data-testid*="Tag"] {{
         background: var(--exam-tag-bg) !important;
+        background-color: var(--exam-tag-bg) !important;
         border: 1px solid var(--exam-tag-border) !important;
         border-radius: 6px !important;
     }}
 
-    [data-baseweb="tag"] * {{
+    [data-baseweb="tag"] *,
+    [data-testid="stMultiSelectTagsContainer"] > div *,
+    [data-testid="stMultiSelect"] span[data-testid*="Tag"] * {{
         color: var(--exam-tag-text) !important;
         -webkit-text-fill-color: var(--exam-tag-text) !important;
     }}
 
-    [data-baseweb="tag"] svg {{
+    [data-baseweb="tag"] svg,
+    [data-testid="stMultiSelectTagsContainer"] > div svg {{
         color: var(--exam-tag-text) !important;
         fill: var(--exam-tag-text) !important;
     }}
 
+    /* Dropdown Menus (VirtualDropdown & Popovers) */
+    [data-testid="stSelectboxVirtualDropdown"],
+    [data-testid="stMultiSelectDropdown"],
     [data-baseweb="popover"],
     [data-baseweb="menu"],
-    [data-baseweb="popover"] [role="listbox"] {{
+    div[data-testid*="Dropdown"],
+    div[role="listbox"],
+    ul[data-testid*="Dropdown"] {{
         background: var(--exam-surface) !important;
+        background-color: var(--exam-surface) !important;
         border: 1px solid var(--exam-border) !important;
+        border-radius: 9px !important;
+        box-shadow: var(--exam-shadow) !important;
     }}
 
-    [role="option"] {{
+    [role="option"],
+    div[role="listbox"] [role="option"],
+    div[data-testid*="Dropdown"] [role="option"],
+    [data-baseweb="menu"] [role="option"],
+    li[role="option"] {{
         background: var(--exam-surface) !important;
+        background-color: var(--exam-surface) !important;
         color: var(--exam-text) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
     }}
 
     [role="option"]:hover,
-    [role="option"][aria-selected="true"] {{
+    [role="option"][aria-selected="true"],
+    [role="option"][data-focused="true"],
+    li[role="option"]:hover,
+    li[role="option"][aria-selected="true"] {{
         background: var(--exam-surface-alt) !important;
-        color: var(--exam-text) !important;
+        background-color: var(--exam-surface-alt) !important;
+        color: var(--exam-primary) !important;
+        -webkit-text-fill-color: var(--exam-primary) !important;
+    }}
+
+    [role="option"] *,
+    li[role="option"] * {{
+        color: inherit !important;
+        -webkit-text-fill-color: inherit !important;
     }}
 
     /* Tabs */
