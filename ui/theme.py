@@ -622,6 +622,29 @@ def apply_theme() -> str:
         box-shadow: var(--exam-shadow) !important;
     }}
 
+    /* Chat message avatars (prevent washed-out white box in dark mode) */
+    [data-testid="stChatMessage"] [data-testid*="Avatar"],
+    [data-testid="stChatMessage"] [data-testid*="avatar"],
+    [data-testid="stChatMessageAvatar"],
+    [data-testid="stChatMessageAvatarCustom"],
+    [data-testid="stChatMessageAvatarUser"],
+    [data-testid="stChatMessageAvatarAssistant"],
+    div[data-testid*="chatAvatarIcon"] {{
+        background: var(--exam-surface-alt) !important;
+        background-color: var(--exam-surface-alt) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 9px !important;
+    }}
+
+    [data-testid="stChatMessage"] [data-testid*="Avatar"] svg,
+    [data-testid="stChatMessage"] [data-testid*="Avatar"] *,
+    [data-testid="stChatMessageAvatar"] svg,
+    div[data-testid*="chatAvatarIcon"] svg {{
+        color: var(--exam-primary) !important;
+        fill: var(--exam-primary) !important;
+        stroke: var(--exam-primary) !important;
+    }}
+
     [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] * {{
         color: var(--exam-text) !important;
     }}
@@ -761,18 +784,81 @@ def apply_theme() -> str:
         color: var(--exam-text) !important;
     }}
 
-    /* Code Blocks */
+    /* Code Blocks (st.code, pre, and syntax highlighter) */
+    .stCode,
+    [data-testid="stCode"],
     [data-testid="stCodeBlock"],
-    [data-testid="stCode"] {{
+    [data-testid="stCodeUnhighlighted"],
+    div[class*="stCode"] {{
         background: var(--exam-surface-alt) !important;
+        background-color: var(--exam-surface-alt) !important;
         border: 1px solid var(--exam-border) !important;
         border-radius: 9px !important;
     }}
 
-    [data-testid="stCodeBlock"] code,
-    [data-testid="stCode"] code {{
+    .stCode pre,
+    [data-testid="stCode"] pre,
+    [data-testid="stCodeBlock"] pre,
+    [data-testid="stCodeUnhighlighted"] pre,
+    div[class*="stCode"] pre,
+    pre {{
+        background: var(--exam-surface-alt) !important;
+        background-color: var(--exam-surface-alt) !important;
         color: var(--exam-text) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
+        border: none !important;
+        border-radius: 9px !important;
+    }}
+
+    .stCode code,
+    .stCode pre code,
+    .stCode span,
+    [data-testid="stCode"] code,
+    [data-testid="stCode"] pre code,
+    [data-testid="stCode"] span,
+    [data-testid="stCodeBlock"] code,
+    [data-testid="stCodeBlock"] span,
+    [data-testid="stCodeUnhighlighted"] *,
+    div[class*="stCode"] code,
+    div[class*="stCode"] span,
+    pre code,
+    pre span {{
+        color: var(--exam-text) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
         background: transparent !important;
+        background-color: transparent !important;
+    }}
+
+    /* Copy button inside code block */
+    [data-testid="stCode"] button,
+    .stCode button {{
+        background: var(--exam-surface) !important;
+        background-color: var(--exam-surface) !important;
+        color: var(--exam-text) !important;
+        -webkit-text-fill-color: var(--exam-text) !important;
+        border: 1px solid var(--exam-border) !important;
+    }}
+
+    [data-testid="stCode"] button svg,
+    .stCode button svg {{
+        color: var(--exam-muted) !important;
+        fill: var(--exam-muted) !important;
+    }}
+
+    /* Inline code in markdown */
+    code:not(pre code),
+    [data-testid="stMarkdownContainer"] code:not(pre code),
+    p code,
+    li code {{
+        background: var(--exam-tag-bg) !important;
+        background-color: var(--exam-tag-bg) !important;
+        color: var(--exam-tag-text) !important;
+        -webkit-text-fill-color: var(--exam-tag-text) !important;
+        border: 1px solid var(--exam-tag-border) !important;
+        border-radius: 6px !important;
+        padding: 2px 7px !important;
+        font-weight: 600 !important;
+        font-size: 0.9em !important;
     }}
 
     /* Expanders */

@@ -304,7 +304,7 @@ def handle_copilot_query(query: str, db: Session) -> CopilotResponse:
         )
 
         status_icon = "🟢" if diag.is_feasible else "🔴"
-        verdict_str = f"### {status_icon} Pre-Flight Feasibility & Agent 2 Infeasibility Triage: **{diag.overall_status}**\n\n{diag.summary}\n\n"
+        verdict_str = f"### {status_icon} Pre-Flight Feasibility Check: **{diag.overall_status}**\n\n{diag.summary}\n\n"
 
         # Issues details
         if diag.issues:

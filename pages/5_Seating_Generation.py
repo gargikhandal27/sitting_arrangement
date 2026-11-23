@@ -264,15 +264,19 @@ with tab_plan:
             )
 
         # Result KPI Metrics
+        assigned_students = getattr(result, "students_assigned", getattr(result, "total_students", len(getattr(result, "assignments", []))))
+        used_rooms = getattr(result, "rooms_used", getattr(result, "classrooms_used", 0))
+        runtime = getattr(result, "runtime_seconds", 0.0)
+
         r1, r2, r3, r4 = st.columns(4)
         with r1:
-            st.metric("Total Students", result.total_students)
+            st.metric("Total Students", assigned_students)
         with r2:
-            st.metric("Students Seated", result.seated_students)
+            st.metric("Students Seated", assigned_students)
         with r3:
-            st.metric("Classrooms Used", result.classrooms_used)
+            st.metric("Classrooms Used", used_rooms)
         with r4:
-            st.metric("Calculation Time", f"{result.runtime_seconds:.2f}s")
+            st.metric("Calculation Time", f"{runtime:.2f}s")
 
         # Problem solver & 1-click fixes if not feasible
         diag = st.session_state.get("infeasibility_diagnosis")

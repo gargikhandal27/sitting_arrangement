@@ -43,6 +43,18 @@ class SolverResult:
     message: str = ""
     objective_value: Optional[float] = None
 
+    @property
+    def total_students(self) -> int:
+        return self.students_assigned
+
+    @property
+    def seated_students(self) -> int:
+        return self.students_assigned
+
+    @property
+    def classrooms_used(self) -> int:
+        return self.rooms_used
+
 
 def solve_seating(
     students: List[StudentInfo],
