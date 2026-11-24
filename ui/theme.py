@@ -1076,6 +1076,79 @@ def apply_theme() -> str:
         object-fit: contain !important;
     }}
 
+    /* Hero Banner */
+    .exam-hero {{
+        background: var(--exam-surface) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 16px !important;
+        padding: 24px 28px !important;
+        margin-bottom: 22px !important;
+        box-shadow: var(--exam-shadow) !important;
+        background-image: linear-gradient(135deg, rgba(40,120,200,0.08) 0%, rgba(32,54,80,0.02) 100%) !important;
+    }}
+
+    /* Workflow Cards */
+    .exam-workflow-card {{
+        background: var(--exam-surface) !important;
+        border: 1px solid var(--exam-border) !important;
+        border-radius: 14px !important;
+        padding: 18px 20px !important;
+        height: 100%;
+        min-height: 210px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: all 0.25s ease !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important;
+    }}
+
+    .exam-workflow-card:hover {{
+        border-color: var(--exam-primary) !important;
+        box-shadow: 0 6px 20px rgba(40,120,200,0.12) !important;
+        transform: translateY(-2px);
+    }}
+
+    /* Status Pills */
+    .exam-pill {{
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 20px;
+        letter-spacing: 0.2px;
+    }}
+    .exam-pill-success {{
+        background: rgba(39, 174, 96, 0.15) !important;
+        color: #27ae60 !important;
+        border: 1px solid rgba(39, 174, 96, 0.35) !important;
+    }}
+    .exam-pill-info {{
+        background: rgba(40, 120, 200, 0.15) !important;
+        color: var(--exam-primary) !important;
+        border: 1px solid rgba(40, 120, 200, 0.35) !important;
+    }}
+    .exam-pill-neutral {{
+        background: rgba(149, 165, 166, 0.15) !important;
+        color: var(--exam-muted) !important;
+        border: 1px solid rgba(149, 165, 166, 0.35) !important;
+    }}
+
+    .exam-step-num {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--exam-primary);
+        color: #FFFFFF !important;
+        font-weight: 800;
+        font-size: 12px;
+        margin-bottom: 8px;
+    }}
+
     </style>
     """
 
